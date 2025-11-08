@@ -49,7 +49,8 @@
     "ollama:pull": "ollama pull llama3",
     "ollama:check": "curl http://localhost:11434/api/tags",
     "ollama:setup": "npm run ollama:pull",
-    "setup": "npm install && npm run ollama:setup"
+    "setup": "npm install && npm run ollama:setup",
+    "generateInstructions": "npx ts-node src/cli.ts --instructions --no-run"
   },
   "keywords": [],
   "author": "",

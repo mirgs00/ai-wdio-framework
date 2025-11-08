@@ -1,6 +1,7 @@
 // src/utils/ai/ollamaClient.ts
 import fetch, { RequestInit } from 'node-fetch';
 import { AbortError } from 'node-fetch';
+import { logger } from '../logger';
 
 export interface OllamaResponse {
   model: string;
@@ -129,9 +130,10 @@ export class OllamaClient {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const startTime = Date.now();
 
     try {
-      console.log(`🔄 Calling Ollama API (${this.model})...`);
+      logger.logOllamaApiCall(prompt, this.model, mergedOptions.temperature!);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -143,19 +145,18 @@ export class OllamaClient {
       } as RequestInit);
 
       clearTimeout(timeoutId);
+      const duration = Date.now() - startTime;
+      logger.recordMetric('ollama_api_call', duration);
 
       if (!response.ok) {
         const errorBody = await response.text();
         const errorMsg = `Ollama API error: ${response.status} ${response.statusText}`;
-        console.error(`❌ ${errorMsg}`);
-        if (errorBody && errorBody.length < 200) {
-          console.error(`Details: ${errorBody}`);
-        }
+        logger.error(errorMsg, new Error(errorBody));
         throw new Error(errorMsg);
       }
 
       const data = (await response.json()) as OllamaResponse;
-      console.log(`✅ Ollama API response received (${data.response.length} chars)`);
+      logger.logOllamaResponse(data.response, this.model, duration);
       return data.response;
     } catch (error: unknown) {
       clearTimeout(timeoutId);

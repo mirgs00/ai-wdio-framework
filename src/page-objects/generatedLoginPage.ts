@@ -1,8 +1,10 @@
-// Auto-generated Page Object for: https://practicetestautomation.com/practice-test-login/
-// Generated from instructions: Test the login page with positive and negative credential flows
+// Auto-generated Page Object for login
+// Page URL: https://practicetestautomation.com/practice-test-login/
+// Description: Login page
+// Elements: username, password, submit, error
 import { $, browser } from '@wdio/globals';
 
-class GeneratedPage {
+class LoginPage {
 
   /**
    * Username input field
@@ -26,20 +28,6 @@ class GeneratedPage {
   }
 
   /**
-   * Success message
-   */
-  get success_text() {
-    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
-  }
-
-  /**
-   * Logged in success heading
-   */
-  get loggedInHeading_text() {
-    return $('h1, h2, [class*="heading"], [class*="title"]');
-  }
-
-  /**
    * Error message
    */
   get error_text() {
@@ -60,4 +48,4 @@ class GeneratedPage {
   }
 }
 
-export default new GeneratedPage();
+export default new LoginPage();

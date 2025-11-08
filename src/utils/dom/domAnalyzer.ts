@@ -31,8 +31,10 @@ export interface PageAnalysis {
   inputFields: FormField[];
   buttons: Array<{ selector: string; text: string; type: string }>;
   links: Array<{ selector: string; text: string; href: string }>;
+  headings: Array<{ selector: string; level: number; text: string }>;
   errorElements: Array<{ selector: string; description: string }>;
   successElements: Array<{ selector: string; description: string }>;
+  textElements: Array<{ selector: string; text: string; tag: string }>;
   tables: number;
   modals: number;
   suggestedScenarios: string[];
@@ -42,7 +44,10 @@ export interface PageAnalysis {
  * Analyzes HTML content and extracts information about page structure.
  * Identifies forms, input fields, buttons, links, and other interactive elements.
  * 
- * @param html - The HTML content to analyze
+ * ⚠️ IMPORTANT: Call this function while the browser session is still OPEN
+ * to capture dynamically generated elements that may not be in the initial HTML.
+ * 
+ * @param html - The HTML content to analyze (should be captured from live page)
  * @returns PageAnalysis object containing extracted page information
  * @throws Error if HTML parsing fails
  */
@@ -56,8 +61,22 @@ export function analyzeDOM(html: string): PageAnalysis {
   const inputFields = extractInputFields($);
   const buttons = extractButtons($);
   const links = extractLinks($);
+  const headings = extractHeadings($);
   const errorElements = extractErrorElements($);
   const successElements = extractSuccessElements($);
+  
+  const errorIds = new Set<string>();
+  const successIds = new Set<string>();
+  errorElements.forEach(e => {
+    const match = e.selector.match(/#(\w+)/);
+    if (match) errorIds.add(match[1]);
+  });
+  successElements.forEach(s => {
+    const match = s.selector.match(/#(\w+)/);
+    if (match) successIds.add(match[1]);
+  });
+  
+  const textElements = extractTextElements($, errorIds, successIds);
   
   const tables = $('table').length;
   const modals = $('[role="dialog"], .modal, [class*="modal"]').length;
@@ -78,8 +97,10 @@ export function analyzeDOM(html: string): PageAnalysis {
     inputFields,
     buttons,
     links,
+    headings,
     errorElements,
     successElements,
+    textElements,
     tables,
     modals,
     suggestedScenarios
@@ -191,12 +212,32 @@ function extractButtons($: any): Array<{ selector: string; text: string; type: s
   const buttons: Array<{ selector: string; text: string; type: string }> = [];
   const seen = new Set<string>();
   
+  const noisePatterns = ['toggle', 'menu', 'nav', 'hamburger', 'search-btn'];
+  
   $('button, input[type="submit"], input[type="button"], input[type="reset"]').each((_: number, btn: any) => {
     const $btn = $(btn);
-    const id = $btn.attr('id');
+    const id = $btn.attr('id') || '';
+    const classStr = $btn.attr('class') || '';
     const text = $btn.text().trim() || $btn.attr('value') || $btn.attr('aria-label') || '';
     const type = $btn.attr('type') || 'button';
-    const selector = id ? `#${id}` : text ? `button:contains("${text}")` : `button[type="${type}"]`;
+    
+    // Skip empty buttons
+    if (!text || text.length === 0) return;
+    
+    // Skip navigation/menu buttons
+    const isNoise = noisePatterns.some(pattern => 
+      id.toLowerCase().includes(pattern) || classStr.toLowerCase().includes(pattern)
+    );
+    if (isNoise) return;
+    
+    let selector = '';
+    if (id) {
+      selector = `#${id}`;
+    } else if (type === 'submit') {
+      selector = `input[type="submit"]`;
+    } else {
+      selector = `button`;
+    }
     
     if (!seen.has(selector)) {
       seen.add(selector);
@@ -209,15 +250,43 @@ function extractButtons($: any): Array<{ selector: string; text: string; type: s
 
 function extractLinks($: any): Array<{ selector: string; text: string; href: string }> {
   const links: Array<{ selector: string; text: string; href: string }> = [];
+  const seen = new Set<string>();
+  
+  const noisePatterns = [
+    'menu', 'nav', 'footer', 'header', 'copyright', 'social',
+    'facebook', 'twitter', 'linkedin', 'instagram'
+  ];
   
   $('a[href]').each((_: number, link: any) => {
     const $link = $(link);
     const text = $link.text().trim();
     const href = $link.attr('href') || '';
-    const id = $link.attr('id');
-    const selector = id ? `#${id}` : text ? `a:contains("${text}")` : `a[href="${href}"]`;
+    const id = $link.attr('id') || '';
+    const classStr = $link.attr('class') || '';
     
-    if (text.length > 0 && text.length < 100 && !href.startsWith('#')) {
+    // Skip fragment links and anchors
+    if (href.startsWith('#') || !text || text.length === 0) return;
+    
+    // Skip navigation/footer links
+    const isNoise = noisePatterns.some(pattern => 
+      id.toLowerCase().includes(pattern) || classStr.toLowerCase().includes(pattern)
+    );
+    if (isNoise) return;
+    
+    // Limit text length
+    if (text.length > 100) return;
+    
+    let selector = '';
+    if (id) {
+      selector = `#${id}`;
+    } else if (href && href.length > 0) {
+      selector = `a[href="${href}"]`;
+    } else {
+      selector = 'a';
+    }
+    
+    if (selector && !seen.has(selector)) {
+      seen.add(selector);
       links.push({ selector, text, href });
     }
   });
@@ -225,17 +294,50 @@ function extractLinks($: any): Array<{ selector: string; text: string; href: str
   return links;
 }
 
+function extractHeadings($: any): Array<{ selector: string; level: number; text: string }> {
+  const headings: Array<{ selector: string; level: number; text: string }> = [];
+  const seen = new Set<string>();
+  
+  for (let level = 1; level <= 6; level++) {
+    $(`h${level}`).each((_: number, heading: any) => {
+      const $heading = $(heading);
+      const text = $heading.text().trim();
+      const id = $heading.attr('id');
+      const classStr = $heading.attr('class') || '';
+      const classes = classStr.split(' ').filter((c: string) => c.length > 0);
+      
+      let selector = '';
+      if (id) {
+        selector = `#${id}`;
+      } else if (classes.length > 0) {
+        selector = `h${level}.${classes[0]}`;
+      } else if (text.length > 0 && text.length < 100) {
+        selector = `h${level}`;
+      }
+      
+      if (text.length > 0 && text.length < 200 && selector && !seen.has(selector)) {
+        seen.add(selector);
+        headings.push({ selector, level, text });
+      }
+    });
+  }
+  
+  return headings;
+}
+
 function extractErrorElements($: any): Array<{ selector: string; description: string }> {
   const errors: Array<{ selector: string; description: string }> = [];
+  const seen = new Set<string>();
   
-  $('[class*="error"], [class*="error-message"], [role="alert"], .alert-danger').each((_: number, el: any) => {
+  $('[class*="error"], [class*="error-message"], [role="alert"], .alert-danger, [id*="error"], [id="error"]').each((_: number, el: any) => {
     const $el = $(el);
     const id = $el.attr('id');
     const classes = $el.attr('class') || '';
-    const selector = id ? `#${id}` : `.${classes.split(' ')[0]}`;
+    const selector = id ? `#${id}` : `.${classes.split(' ').filter((c: string) => c)[0]}`;
     const text = $el.text().trim().substring(0, 50);
     
-    if (!errors.some(e => e.selector === selector)) {
+    if (selector && !seen.has(selector)) {
+      seen.add(selector);
       errors.push({ 
         selector, 
         description: `Error message: ${text || 'Generic error element'}` 
@@ -248,15 +350,18 @@ function extractErrorElements($: any): Array<{ selector: string; description: st
 
 function extractSuccessElements($: any): Array<{ selector: string; description: string }> {
   const success: Array<{ selector: string; description: string }> = [];
+  const seen = new Set<string>();
   
-  $('[class*="success"], [class*="success-message"], .alert-success, [class*="confirmation"]').each((_: number, el: any) => {
+  // First, find elements with success-related classes
+  $('[class*="success"], [class*="success-message"], .alert-success, [class*="confirmation"], [id*="success"]').each((_: number, el: any) => {
     const $el = $(el);
     const id = $el.attr('id');
     const classes = $el.attr('class') || '';
-    const selector = id ? `#${id}` : `.${classes.split(' ')[0]}`;
+    const selector = id ? `#${id}` : `.${classes.split(' ').filter((c: string) => c)[0]}`;
     const text = $el.text().trim().substring(0, 50);
     
-    if (!success.some(s => s.selector === selector)) {
+    if (selector && !seen.has(selector)) {
+      seen.add(selector);
       success.push({ 
         selector, 
         description: `Success message: ${text || 'Generic success element'}` 
@@ -264,7 +369,121 @@ function extractSuccessElements($: any): Array<{ selector: string; description: 
     }
   });
   
+  // Also check headings and paragraphs for success-related text
+  $('h1, h2, h3, p, div').each((_: number, el: any) => {
+    const $el = $(el);
+    const text = $el.text().trim().toLowerCase();
+    const id = $el.attr('id');
+    const classes = $el.attr('class') || '';
+    
+    // Check if text contains success-related keywords
+    const successKeywords = ['logged in', 'success', 'congratulations', 'welcome', 'logged-in'];
+    const hasSuccessKeyword = successKeywords.some(keyword => text.includes(keyword));
+    
+    if (hasSuccessKeyword) {
+      let selector = '';
+      if (id) {
+        selector = `#${id}`;
+      } else if (classes) {
+        const classList = classes.split(' ').filter((c: string) => c.length > 0);
+        const tagName = el.tagName.toLowerCase();
+        if (classList.length > 0) {
+          selector = `${tagName}.${classList[0]}`;
+        } else {
+          selector = tagName;
+        }
+      } else {
+        selector = el.tagName.toLowerCase();
+      }
+      
+      if (selector && !seen.has(selector)) {
+        seen.add(selector);
+        const fullText = $el.text().trim().substring(0, 50);
+        success.push({ 
+          selector, 
+          description: `Success message: ${fullText}` 
+        });
+      }
+    }
+  });
+  
   return success;
+}
+
+function extractTextElements($: any, errorIds: Set<string>, successIds: Set<string>): Array<{ selector: string; text: string; tag: string }> {
+  const textElements: Array<{ selector: string; text: string; tag: string }> = [];
+  const seen = new Set<string>();
+  const seenText = new Set<string>();
+  
+  const noisePatterns = [
+    'menu', 'nav', 'footer', 'header', 'copyright', 'cookie', 
+    'advertisement', 'ad-', 'sidebar', 'twitter', 'facebook',
+    'linkedin', 'instagram', 'contact-info', 'social', 'design-credit',
+    'credit', 'cookie'
+  ];
+  
+  const tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'article'];
+  
+  tags.forEach(tag => {
+    $(tag).each((_: number, el: any) => {
+      const $el = $(el);
+      const text = $el.text().trim();
+      const id = $el.attr('id') || '';
+      const classStr = $el.attr('class') || '';
+      const classes = classStr.split(' ').filter((c: string) => c.length > 0);
+      
+      // Skip if already captured as error or success element
+      if (id && (errorIds.has(id) || successIds.has(id))) return;
+      
+      // Skip noise elements by ID or class
+      const idLower = id.toLowerCase();
+      const classLower = classStr.toLowerCase();
+      const isNoise = noisePatterns.some(pattern => 
+        idLower.includes(pattern) || classLower.includes(pattern)
+      );
+      
+      if (isNoise) return;
+      
+      // Skip elements with forms/inputs nested
+      const hasNestedForm = $el.find('form, input, button, textarea, select').length > 0;
+      
+      // For non-heading tags, skip if contains nested headings
+      const hasNestedHeading = tag !== 'h1' && tag !== 'h2' && tag !== 'h3' && 
+                               tag !== 'h4' && tag !== 'h5' && tag !== 'h6' && 
+                               $el.find('h1, h2, h3, h4, h5, h6').length > 0;
+      
+      // Skip very long or very short text
+      if (hasNestedForm || hasNestedHeading || text.length < 10 || text.length > 300) {
+        return;
+      }
+      
+      // Skip if we've already seen this exact text (avoid duplicates)
+      const textKey = text.substring(0, 50);
+      if (seenText.has(textKey)) return;
+      seenText.add(textKey);
+      
+      let selector = '';
+      if (id) {
+        selector = `#${id}`;
+      } else if (classes.length > 0) {
+        selector = `${tag}.${classes[0]}`;
+      } else {
+        selector = tag;
+      }
+      
+      // Avoid duplicate selectors
+      if (selector && !seen.has(selector)) {
+        seen.add(selector);
+        textElements.push({ 
+          selector, 
+          text: text.substring(0, 100), 
+          tag 
+        });
+      }
+    });
+  });
+  
+  return textElements;
 }
 
 function inferFieldValidation($: any, field: any, type: string): string {

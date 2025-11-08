@@ -1,3 +1,8 @@
+import fetch from 'node-fetch';
+import { execSync, spawn } from 'child_process';
+
+let ollamaProcess: any = null;
+
 export const config: WebdriverIO.Config = {
     //
     // ====================
@@ -62,7 +67,7 @@ export const config: WebdriverIO.Config = {
     // Define all options that are relevant for the WebdriverIO instance here
     //
     // Level of logging verbosity: trace | debug | info | warn | error | silent
-    logLevel: 'info',
+    logLevel: 'error',
     //
     // Set specific log levels per logger
     // loggers:
@@ -102,10 +107,7 @@ export const config: WebdriverIO.Config = {
     // Services take over a specific job you don't want to take care of. They enhance
     // your test setup with almost no effort. Unlike plugins, they don't add new
     // commands. Instead, they hook themselves up into the test process.
-    // services: [
-    //     'chromedriver',
-    //     ['expect-webdriverio', { wait: 5000 }]
-    // ],
+    services: [],
     //
     // Framework you want to run your specs with.
     // The following are supported: Mocha, Jasmine, and Cucumber
@@ -117,7 +119,7 @@ export const config: WebdriverIO.Config = {
     
     //
     // The number of times to retry the entire specfile when it fails as a whole
-    // specFileRetries: 1,
+    specFileRetries: 0,
     //
     // Delay in seconds between the spec file retry attempts
     // specFileRetriesDelay: 0,
@@ -172,8 +174,107 @@ export const config: WebdriverIO.Config = {
      * @param {object} config wdio configuration object
      * @param {Array.<Object>} capabilities list of capabilities details
      */
-    // onPrepare: function (config, capabilities) {
-    // },
+    onPrepare: async function (config, capabilities) {
+        const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+        
+        async function isOllamaHealthy(): Promise<boolean> {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(`${ollamaUrl}/api/tags`, {
+                    signal: controller.signal as any
+                });
+                
+                clearTimeout(timeoutId);
+                return response.ok;
+            } catch {
+                return false;
+            }
+        }
+        
+        async function startOllama(): Promise<boolean> {
+            try {
+                const platform = process.platform;
+                let command = 'ollama';
+                
+                if (platform === 'win32') {
+                    try {
+                        execSync('where ollama', { stdio: 'ignore' });
+                    } catch {
+                        throw new Error('Ollama not found in PATH');
+                    }
+                } else {
+                    try {
+                        execSync('which ollama', { stdio: 'ignore' });
+                    } catch {
+                        throw new Error('Ollama not found');
+                    }
+                }
+                
+                console.log('\n📦 Starting Ollama service...');
+                ollamaProcess = spawn(command, ['serve'], {
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    detached: false,
+                });
+                
+                ollamaProcess.stderr?.on('data', (data: Buffer) => {
+                    const msg = data.toString().trim();
+                    if (msg && (msg.includes('ERROR') || msg.includes('WARN'))) {
+                        console.log(`   [Ollama] ${msg}`);
+                    }
+                });
+                
+                let attempts = 0;
+                const maxRetries = 10;
+                const retryInterval = 2000;
+                
+                while (attempts < maxRetries) {
+                    if (await isOllamaHealthy()) {
+                        console.log(`✅ Ollama service started and ready`);
+                        return true;
+                    }
+                    attempts++;
+                    if (attempts < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, retryInterval));
+                    }
+                }
+                
+                console.error('❌ Ollama did not start within timeout');
+                return false;
+            } catch (error) {
+                console.warn('⚠️  Could not start Ollama:', error instanceof Error ? error.message : error);
+                return false;
+            }
+        }
+        
+        console.log(`\n🔍 Checking Ollama service at ${ollamaUrl}...`);
+        const isHealthy = await isOllamaHealthy();
+        
+        if (isHealthy) {
+            console.log('✅ Ollama health check PASSED - AI features enabled');
+        } else {
+            console.warn('⚠️  Ollama is not responding. Attempting to start...');
+            const started = await startOllama();
+            if (!started) {
+                console.warn('\n⚠️  AI-powered step generation will use fallback implementations');
+            }
+        }
+    },
+    
+    onComplete: async function (exitCode, config, capabilities, results) {
+        if (ollamaProcess) {
+            try {
+                ollamaProcess.kill('SIGTERM');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                if (!ollamaProcess.killed) {
+                    ollamaProcess.kill('SIGKILL');
+                }
+            } catch (error) {
+                // Ignore cleanup errors
+            }
+        }
+    },
     /**
      * Gets executed before a worker process is spawned and can be used to initialize specific service
      * for that worker as well as modify runtime environments in an async fashion.

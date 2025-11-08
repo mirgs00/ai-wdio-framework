@@ -41,8 +41,19 @@ async function generatePageObjectFile(): Promise<void> {
   }
 }
 
+/**
+ * Normalizes step text for deduplication by replacing quoted values with placeholders
+ * This helps identify steps with the same pattern but different parameter values
+ * Example: "the user enters username \"student\"" -> "the user enters username \"<PARAM>\""
+ */
+function normalizeStepForDedup(stepText: string): string {
+  // Replace any quoted string (double or single) with a placeholder
+  return stepText.replace(/"[^"]*"/g, '"<PARAM>"').replace(/'[^']*'/g, "'<PARAM>'");
+}
+
 function extractStepsFromFeature(featureContent: string): string[] {
   const steps: string[] = [];
+  const normalizedSteps = new Set<string>();
   const lines = featureContent.split('\n');
 
   for (const line of lines) {
@@ -51,8 +62,17 @@ function extractStepsFromFeature(featureContent: string): string[] {
       const stepText = trimmed
         .replace(/^\s*(Given|When|Then|And|But)\s+/, '')
         .trim();
-      if (stepText && !steps.includes(stepText)) {
-        steps.push(stepText);
+      
+      if (stepText) {
+        // Normalize the step to check for duplicates with different parameter values
+        const normalized = normalizeStepForDedup(stepText);
+        
+        if (!normalizedSteps.has(normalized)) {
+          steps.push(stepText);
+          normalizedSteps.add(normalized);
+        } else {
+          console.log(`ℹ️  Skipping duplicate step pattern: "${stepText}"`);
+        }
       }
     }
   }
@@ -475,7 +495,8 @@ Now generate the implementation for: "${step}"`;
     
     return implementation;
   } catch (error) {
-    console.warn(`⚠️ Generation failed for "${step}": ${(error as Error).message}`);
+    console.warn(`⚠️ AI generation failed for "${step}": ${(error as Error).message}`);
+    console.warn(`   → Using fallback implementation`);
     return generateFallbackImplementation(step, stepType, parameters, pageElements);
   }
 }
@@ -671,6 +692,37 @@ function generateFallbackImplementation(
 }`;
   }
 
+  // Page header or success message with text verification
+  if ((lowerStep.includes('page header') || lowerStep.includes('success') || lowerStep.includes('message')) && lowerStep.includes('containing text')) {
+    const textParam = parameters[0] || 'expectedText';
+    return `try {
+  // Try to find the element in dashboard page first
+  let element;
+  if (typeof dashboardPage !== 'undefined' && dashboardPage) {
+    // Try to find any property that looks like a success/heading/text element
+    const dashboardProps = Object.getOwnPropertyNames(Object.getPrototypeOf(dashboardPage));
+    const successProp = dashboardProps.find((prop: string) => 
+      prop.includes('success') || prop.includes('heading') || prop.includes('text')
+    );
+    if (successProp && (dashboardPage as any)[successProp]) {
+      element = (dashboardPage as any)[successProp];
+    }
+  }
+  
+  // Fallback to a CSS selector
+  if (!element) {
+    element = $('h1.post-title, [class*="success"], [class*="message"], [role="status"]');
+  }
+  
+  await expect(element).toBeDisplayed({ timeout: 5000 });
+  const actualText = await element.getText();
+  expect(actualText).toContain(${textParam});
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(\`Failed to verify message: \${errorMessage}\`);
+}`;
+  }
+
   // Default fallback
   return `try {
   await browser.pause(1000);
@@ -680,15 +732,63 @@ function generateFallbackImplementation(
 }`;
 }
 
+/**
+ * Deduplicates step definitions by pattern, keeping the first occurrence
+ * and logging when duplicates are found for transparency
+ */
+function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
+  const seenPatterns = new Map<string, StepDefinition>();
+  const duplicateLogs: string[] = [];
+  
+  for (const step of stepDefinitions) {
+    const key = `${step.type}:${step.pattern}`;
+    
+    if (!seenPatterns.has(key)) {
+      seenPatterns.set(key, step);
+    } else {
+      // If pattern already exists, keep the existing one (which was first encountered)
+      const existingStep = seenPatterns.get(key);
+      const message = `⚠️  Skipping duplicate pattern: ${step.type}(/${step.pattern}/) for "${step.originalText}" (already exists for "${existingStep?.originalText}")`;
+      duplicateLogs.push(message);
+      console.log(message);
+    }
+  }
+  
+  // Log summary if duplicates were found
+  if (duplicateLogs.length > 0) {
+    console.log(`\n📌 Deduplication Summary: Found and removed ${duplicateLogs.length} duplicate step definition(s)`);
+  }
+  
+  return Array.from(seenPatterns.values());
+}
+
 function generateStepDefinitionsFile(stepDefinitions: StepDefinition[]): string {
-  const imports = `import { Given, When, Then, And } from "@wdio/cucumber-framework";
+  const imports = `import { Given, When, Then } from "@wdio/cucumber-framework";
 import { expect, browser, $ } from '@wdio/globals';
 import dotenv from 'dotenv';
-import generatedPage from '../page-objects/generatedPage';
 
-dotenv.config();\n\n`;
+// Import available page objects
+let loginPage: any, dashboardPage: any, errorPage: any, generatedPage: any;
+try { loginPage = require('../page-objects/generatedLoginPage').default; } catch (e) {}
+try { dashboardPage = require('../page-objects/generatedDashboardPage').default; } catch (e) {}
+try { errorPage = require('../page-objects/generatedErrorPage').default; } catch (e) {}
+try { generatedPage = require('../page-objects/generatedPage').default; } catch (e) {}
 
-  const steps = stepDefinitions.map(step => {
+dotenv.config();
+
+/**
+ * AUTO-GENERATED STEP DEFINITIONS
+ * This file is automatically generated and deduplicated to prevent step pattern conflicts.
+ * Each step pattern is unique to ensure proper Cucumber matching.
+ * Supports multiple page objects: loginPage, dashboardPage, errorPage, generatedPage
+ */
+
+`;
+
+  // Deduplicate steps before generating
+  const deduplicatedSteps = deduplicateSteps(stepDefinitions);
+
+  const steps = deduplicatedSteps.map(step => {
     return `/**
  * Implements: "${step.originalText.replace(/"/g, '\\"')}"
  */
@@ -754,6 +854,25 @@ export async function buildStepDefinitions(
   }
 
   console.log(`📋 Generating implementations for ${steps.length} steps...`);
+  
+  // Check Ollama health before processing steps
+  const ollamaHealthy = await ollamaClient.checkHealth();
+  if (!ollamaHealthy) {
+    console.warn('\n⚠️  ═══════════════════════════════════════════════════════════════');
+    console.warn('⚠️  WARNING: Ollama service is not accessible');
+    console.warn('⚠️  ═══════════════════════════════════════════════════════════════');
+    console.warn('⚠️  AI-powered step generation is DISABLED');
+    console.warn('⚠️  Using fallback basic step implementations instead');
+    console.warn('⚠️  ');
+    console.warn('⚠️  To enable AI features, start Ollama:');
+    console.warn('⚠️    1. npm run ollama:start       (in another terminal)');
+    console.warn('⚠️    2. npm run ollama:check       (verify it\'s running)');
+    console.warn('⚠️    3. Re-run generation command');
+    console.warn('⚠️  ═══════════════════════════════════════════════════════════════\n');
+  } else {
+    console.log('✅ Ollama service is healthy - AI-powered step generation ENABLED\n');
+  }
+  
   for (const step of steps) {
     console.log(`⚙️ Processing step: "${step}"`);
     const stepType = determineStepType(step);
@@ -781,9 +900,14 @@ export async function buildStepDefinitions(
     });
   }
 
+  // Count unique patterns before deduplication
+  const uniquePatterns = new Set(stepDefinitions.map(s => `${s.type}:${s.pattern}`)).size;
+  
   const stepDefinitionsCode = generateStepDefinitionsFile(stepDefinitions);
   writeFileSync(GENERATED_STEPS_FILE, stepDefinitionsCode, 'utf-8');
-  console.log(`✅ Successfully generated ${stepDefinitions.length} step definitions`);
+  
+  const duplicateCount = stepDefinitions.length - uniquePatterns;
+  console.log(`✅ Successfully generated ${uniquePatterns} unique step definitions${duplicateCount > 0 ? ` (${duplicateCount} duplicates removed)` : ''}`);
 
   const validation = stepQualityValidator.validateAllSteps(stepDefinitionsCode);
   console.log(`📝 Step Quality Score: ${validation.score}/100`);

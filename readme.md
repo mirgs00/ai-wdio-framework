@@ -271,21 +271,29 @@ ai-wdio-framework/
 ├── src/
 │   ├── cli.ts                              # Main CLI entry point & orchestrator
 │   ├── features/                           # Cucumber feature files (auto-generated)
-│   │   ├── sample.feature
-│   │   └── practicetestautomation_*.feature
+│   │   ├── login_page_tests.feature
+│   │   └── *.feature
 │   ├── step-definitions/                   # Step definitions (auto-generated & manual)
 │   │   ├── generatedSteps.ts              # Auto-generated step implementations
-│   │   └── sample.steps.ts
+│   │   └── customSteps.ts
 │   ├── page-objects/                       # Page Object Models (auto-generated)
-│   │   ├── generatedPage.ts               # Auto-generated page object
-│   │   └── sample.page.ts
+│   │   ├── generatedLoginPage.ts          # Auto-generated page object
+│   │   ├── generatedDashboardPage.ts
+│   │   └── *.ts
+│   ├── services/                           # Custom services & utilities
+│   │   ├── pageContextManager.ts          # Multi-page context management
+│   │   └── healingService.ts              # Self-healing on failures
 │   └── utils/
 │       ├── ai/
 │       │   └── ollamaClient.ts            # Ollama LLM interface
 │       ├── dom/
+│       │   ├── domAnalyzer.ts             # DOM parsing & element analysis
 │       │   ├── domParser.ts               # DOM fetching & parsing
 │       │   ├── discoverElementsFromDOM.ts # Element discovery
 │       │   └── fetchDom.ts
+│       ├── healing/
+│       │   ├── autoRegenerateOnFailure.ts # Auto DOM regeneration on test failure
+│       │   └── healingHooks.ts            # Test failure hooks for healing
 │       ├── mobile/
 │       │   └── scanMobileApp.ts           # Mobile app element scanner
 │       └── test-gen/
@@ -296,15 +304,16 @@ ai-wdio-framework/
 │   ├── wdio.android.conf.ts               # Android testing config
 │   ├── wdio.ios.conf.ts                   # iOS testing config
 │   └── wdio.shared.conf.ts                # Shared configuration
-├── apps/
-│   └── SauceLabsSample.apk                # Sample Android test app
+├── poc/                                   # Proof of Concepts (non-production)
+│   ├── deepseek-coder-v2/                # AI model caching
+│   └── apps/                              # Sample mobile apps & experiments
 ├── screenshots/                           # Test failure screenshots
 ├── build/                                 # Compiled JavaScript output
 ├── wdio.conf.ts                           # Main WebDriverIO config (web)
 ├── wdio.conf.js                           # Compiled WDIO config
 ├── tsconfig.json                          # TypeScript configuration
 ├── package.json                           # Project dependencies & scripts
-├── IMPROVEMENTS.md                        # Issues & improvements tracker
+├── instructions.json                      # Test case definitions
 ├── .env                                   # Environment variables (not in git)
 ├── .gitignore                             # Git ignore patterns
 └── README.md                              # This file
@@ -398,6 +407,28 @@ See `IMPROVEMENTS.md` for a comprehensive list of identified issues and improvem
 - Load `dotenv` config in entry points
 - Add URL validation helper function
 - Remove large commented code blocks for cleaner codebase
+
+## 📋 Project Cleanup & Organization
+
+### Recent Cleanup (Latest)
+
+**Deleted Files:**
+- Test/Debug scripts: `debug_dom.ts`, `test_dom_analyzer.ts`, `regenerate_pages.ts`, `regenerate_steps.ts`
+- Test output files: `test_final.txt`, `test_output.txt`, `test_run.txt`
+- Duplicate documentation: All SMART_LOCATORS_*.md, VERIFICATION_*.md, MIGRATION_*.md, PAGE_SPECIFIC_*.md, and other specialized guides
+- Duplicate instructions files: `instructions.auto-detect.json`, `instructions.example.json`
+
+**Organized:**
+- POC (Proof of Concept) folders moved to `/poc` directory:
+  - `deepseek-coder-v2/` - LLM model caching experiments
+  - `apps/` - Mobile app samples and experiments
+- Kept single source of truth for documentation: `readme.md` and `ARCHITECTURE_DIAGRAM.md`
+
+**Result:**
+- Cleaner project structure with clear separation between production code and POC
+- Single documentation file for easier maintenance
+- All debug/test artifacts removed
+- Clear organized structure for future development
 
 ## 📈 Future Enhancements
 

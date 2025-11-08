@@ -1,0 +1,55 @@
+{
+  "projectName": "Login Page Tests",
+  "url": "https://practicetestautomation.com/practice-test-login/",
+  "description": "Test the login page with positive and negative credential flows",
+  "testCases": [
+    {
+      "name": "Successful Login",
+      "description": "User should be able to login with valid credentials",
+      "steps": [
+        "User navigates to login page",
+        "User enters username 'student'",
+        "User enters password 'Password123'",
+        "User clicks login button",
+        "User sees page header containing text 'Logged In Successfully'"
+      ],
+      "tags": ["happy-path", "positive"]
+    },
+    {
+      "name": "Failed Login",
+      "description": "System should reject incorrect credentials",
+      "steps": [
+        "User navigates to login page",
+        "User enters username 'wrong_username'",
+        "User enters password 'wrong_password'",
+        "User clicks login button",
+        "User sees error message about invalid credentials"
+      ],
+      "tags": ["negative"]
+    },
+    {
+      "name": "Invalid Username",
+      "description": "System should reject invalid username format",
+      "steps": [
+        "User navigates to login page",
+        "User enters username 'invalid_user'",
+        "User enters password 'Password123'",
+        "User clicks submit button",
+        "User sees error message about username format"
+      ],
+      "tags": ["negative", "validation"]
+    },
+    {
+      "name": "Missing Password",
+      "description": "System should require password field",
+      "steps": [
+        "User navigates to login page",
+        "User enters username 'student'",
+        "User leaves password field empty",
+        "User clicks submit button",
+        "User sees error message that password is required"
+      ],
+      "tags": ["negative", "validation"]
+    }
+  ]
+}
