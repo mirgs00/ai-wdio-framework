@@ -286,6 +286,48 @@ export class PromptTemplateManager {
     
     return prompts;
   }
+
+  /**
+   * Generates an enhanced prompt for stable selector generation
+   * Guides step definitions to use multi-selector patterns with fallbacks
+   */
+  generateStableSelectorPrompt(analysis: PageAnalysis, stepDescription: string): string {
+    return `You are helping generate WebdriverIO step definitions with STABLE, RESILIENT selectors.
+
+IMPORTANT SELECTOR GUIDELINES:
+1. Use MULTI-SELECTOR patterns: 'selector1, selector2, selector3'
+2. Primary selector should be the most specific and reliable
+3. Add fallback selectors for common patterns:
+   - ID-based: #element-id
+   - Class-based: [class*="classname"]
+   - Text-based: button:has-text("Button Text")
+   - Role-based: [role="button"]
+4. For buttons: Include multiple patterns like button type, class contains, and text
+5. For inputs: Include id, name attribute, and type-based matching
+6. For success/error messages: Include class patterns, IDs, and role attributes
+
+EXAMPLE - Login Button Selector:
+Good:   '#loginBtn, button[class*="login"], button:has-text("Login"), [role="button"][type="submit"]'
+Bad:    'button' or ':nth-child(3) > button'
+
+EXAMPLE - Success Message Selector:
+Good:   '[class*="success"], #success, [id*="alert"], .alert-success, [role="status"]'
+Bad:    '.message' or 'div:nth-of-type(2)'
+
+Step: "${stepDescription}"
+Elements available in page:
+- Input fields: ${analysis.inputFields.map(f => f.name).join(', ')}
+- Buttons: ${analysis.buttons.map(b => b.text).join(', ')}
+- Success elements: ${analysis.successElements.map(e => e.description).join(', ')}
+- Error elements: ${analysis.errorElements.map(e => e.description).join(', ')}
+
+Generate a step definition that:
+1. Uses the most robust multi-selector pattern
+2. Includes 3-4 fallback selectors
+3. Has clear comments explaining selector choices
+4. Includes validation before interaction
+5. Provides helpful error messages if selectors fail`;
+  }
 }
 
 export const promptTemplateManager = new PromptTemplateManager();

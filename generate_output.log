@@ -1,2 +1,49 @@
 
-===== LOG SESSION STARTED: 2025-11-08T11:11:01.097Z =====
+===== LOG SESSION STARTED: 2025-11-08T21:15:28.390Z =====
+[WARN] [SELECTOR_CHECK] Error checking if element is displayed (step: page header containing text)
+{
+  "error": "selector needs to be typeof `string` or `function`, but found: `object`"
+}
+[WARN] [STEP_EXECUTION] Success message selector not displayed, checking existence
+{
+  "selector": {},
+  "expectedText": "Logged In Successfully",
+  "fallbackSelectors": [
+    ".success",
+    "[class*=\"success\"]",
+    ".alert-success",
+    "[role=\"alert\"]",
+    "[id*=\"success\"]"
+  ]
+}
+[WARN] [SELECTOR_CHECK] Error checking if element is displayed (step: error message about invalid credentials)
+{
+  "error": "selector needs to be typeof `string` or `function`, but found: `object`"
+}
+[WARN] [STEP_EXECUTION] Error message selector not displayed
+{
+  "selector": {},
+  "fallbackSelectors": [
+    ".error",
+    "[class*=\"error\"]",
+    ".alert-error",
+    "[class*=\"danger\"]",
+    "[role=\"alert\"]"
+  ]
+}
+[WARN] [SELECTOR_CHECK] Error checking if element is displayed (step: error message about username format)
+{
+  "error": "selector needs to be typeof `string` or `function`, but found: `object`"
+}
+[WARN] [STEP_EXECUTION] Error message selector not displayed
+{
+  "selector": {}
+}
+[WARN] [SELECTOR_CHECK] Error checking if element is displayed (step: error message that password is required)
+{
+  "error": "selector needs to be typeof `string` or `function`, but found: `object`"
+}
+[WARN] [STEP_EXECUTION] Error message selector not displayed
+{
+  "selector": {}
+}

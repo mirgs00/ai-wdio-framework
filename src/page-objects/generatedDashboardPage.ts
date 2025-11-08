@@ -10,7 +10,7 @@ class DashboardPage {
    * Success message
    */
   get success_text() {
-    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
+    return $('h1.post-title, #success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
   }
 
   /**
