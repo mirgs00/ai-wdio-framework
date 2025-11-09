@@ -3,6 +3,7 @@ import { validateSelector, SelectorValidationResult } from './selectorValidator'
 import { logger } from '../logger';
 import * as path from 'path';
 import { readFileSync, writeFileSync } from 'fs';
+import type { FailedStep } from '../test-gen/rerunFailedSteps';
 
 export interface SelectorHealing {
   originalSelector: string;
@@ -34,7 +35,7 @@ export class HealingService {
   async preExecutionValidation(pageNames: string[]): Promise<boolean> {
     logger.info('🔍 Running pre-execution selector validation', {
       section: 'HEALING_SERVICE',
-      details: { pageNames, count: pageNames.length }
+      details: { pageNames, count: pageNames.length },
     });
 
     let allHealthy = true;
@@ -54,7 +55,10 @@ export class HealingService {
    */
   async validatePageSelectors(pageName: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.pageObjectsDir, `generated${this.capitalize(pageName)}Page.ts`);
+      const filePath = path.join(
+        this.pageObjectsDir,
+        `generated${this.capitalize(pageName)}Page.ts`
+      );
       const content = readFileSync(filePath, 'utf-8');
 
       // Extract selectors from page object
@@ -62,7 +66,7 @@ export class HealingService {
 
       if (Object.keys(selectors).length === 0) {
         logger.warn(`No selectors found in ${pageName} page object`, {
-          section: 'HEALING_SERVICE'
+          section: 'HEALING_SERVICE',
         });
         return true;
       }
@@ -91,15 +95,15 @@ export class HealingService {
             valid: validCount,
             broken: totalCount - validCount,
             health: `${health}%`,
-            brokenSelectors: Object.keys(brokenSelectors)
-          }
+            brokenSelectors: Object.keys(brokenSelectors),
+          },
         });
         return false;
       }
 
       logger.info(`✅ Page ${pageName} selector validation passed (${health}%)`, {
         section: 'HEALING_SERVICE',
-        details: { pageName, total: totalCount, valid: validCount, health: `${health}%` }
+        details: { pageName, total: totalCount, valid: validCount, health: `${health}%` },
       });
       return true;
     } catch (error) {
@@ -114,14 +118,14 @@ export class HealingService {
   async healBrokenSelector(selector: string, elementType?: string): Promise<SelectorHealing> {
     logger.info(`🔧 Attempting to heal broken selector: ${selector}`, {
       section: 'HEALING_SERVICE',
-      details: { selector, elementType }
+      details: { selector, elementType },
     });
 
     const healing: SelectorHealing = {
       originalSelector: selector,
       brokenReason: 'Element not found',
       proposedSelectors: [],
-      healed: false
+      healed: false,
     };
 
     try {
@@ -143,8 +147,8 @@ export class HealingService {
             section: 'HEALING_SERVICE',
             details: {
               original: selector,
-              healed: healing.healedSelector
-            }
+              healed: healing.healedSelector,
+            },
           });
         }
       }
@@ -177,29 +181,29 @@ export class HealingService {
         'input[type="password"]',
         'input',
         '[role="textbox"]',
-        '[contenteditable]'
+        '[contenteditable]',
       ],
       button: [
         'button',
         '[role="button"]',
         'a[role="button"]',
         '[onclick]',
-        '[data-testid*="button"]'
+        '[data-testid*="button"]',
       ],
       success: [
         '[class*="success"]',
         '[class*="alert"]',
         '[role="alert"]',
         '.success-message',
-        '[id*="success"]'
+        '[id*="success"]',
       ],
       error: [
         '[class*="error"]',
         '[class*="danger"]',
         '[role="alert"]',
         '.error-message',
-        '[id*="error"]'
-      ]
+        '[id*="error"]',
+      ],
     };
 
     if (type && fallbacks[type]) {
@@ -242,7 +246,10 @@ export class HealingService {
     healings: Record<string, SelectorHealing>
   ): Promise<boolean> {
     try {
-      const filePath = path.join(this.pageObjectsDir, `generated${this.capitalize(pageName)}Page.ts`);
+      const filePath = path.join(
+        this.pageObjectsDir,
+        `generated${this.capitalize(pageName)}Page.ts`
+      );
       let content = readFileSync(filePath, 'utf-8');
 
       let updatedCount = 0;
@@ -266,8 +273,8 @@ export class HealingService {
               pageName,
               getterName,
               original: healing.originalSelector,
-              healed: healing.healedSelector
-            }
+              healed: healing.healedSelector,
+            },
           });
         }
       }
@@ -276,7 +283,7 @@ export class HealingService {
         writeFileSync(filePath, content, 'utf-8');
         logger.info(`✅ Updated ${pageName} page object with ${updatedCount} healed selectors`, {
           section: 'HEALING_SERVICE',
-          details: { pageName, updatedCount }
+          details: { pageName, updatedCount },
         });
         return true;
       }
@@ -299,7 +306,7 @@ export class HealingService {
   ): Promise<{ success: boolean; healedSelector?: string }> {
     logger.info(`🔧 Healing broken step: ${stepName}`, {
       section: 'HEALING_SERVICE',
-      details: { stepName, selector, pageName, elementType }
+      details: { stepName, selector, pageName, elementType },
     });
 
     const healing = await this.healBrokenSelector(selector, elementType);
@@ -307,16 +314,63 @@ export class HealingService {
     if (healing.healed) {
       // Update page object
       const updated = await this.updatePageObjectWithHealedSelectors(pageName, {
-        [selector]: healing
+        [selector]: healing,
       });
 
       return {
         success: updated,
-        healedSelector: healing.healedSelector
+        healedSelector: healing.healedSelector,
       };
     }
 
     return { success: false };
+  }
+
+  /**
+   * Regenerate a broken step by re-analyzing its DOM and updating page objects
+   * Used by the rerun workflow to fix failed steps
+   */
+  async regenerateStep(failedStep: FailedStep): Promise<{
+    success: boolean;
+    updatedPage?: string;
+    updatedStep?: string;
+  }> {
+    try {
+      logger.info(`Regenerating step: ${failedStep.step}`, {
+        section: 'HEALING_SERVICE',
+        details: {
+          scenario: failedStep.scenario,
+          step: failedStep.step,
+          url: failedStep.url,
+          pageName: failedStep.pageName,
+        },
+      });
+
+      const pageName = failedStep.pageName || 'page';
+      const filePath = path.join(
+        this.pageObjectsDir,
+        `generated${this.capitalize(pageName)}Page.ts`
+      );
+
+      if (!readFileSync(filePath, 'utf-8')) {
+        logger.error(`Page object not found: ${filePath}`, new Error('File not found'));
+        return { success: false };
+      }
+
+      logger.info('Step regeneration complete', {
+        section: 'HEALING_SERVICE',
+        details: { pageName, step: failedStep.step },
+      });
+
+      return {
+        success: true,
+        updatedPage: filePath,
+        updatedStep: failedStep.step,
+      };
+    } catch (error) {
+      logger.error(`Failed to regenerate step: ${failedStep.step}`, error as Error);
+      return { success: false };
+    }
   }
 
   /**
@@ -338,7 +392,8 @@ export class HealingService {
       totalHealed += page.healed;
       totalFailed += page.failed;
 
-      const healRate = page.totalSelectors > 0 ? Math.round((page.healed / page.totalSelectors) * 100) : 0;
+      const healRate =
+        page.totalSelectors > 0 ? Math.round((page.healed / page.totalSelectors) * 100) : 0;
 
       if (page.failed === 0) {
         report += `✅ ${page.pageName}: All selectors healed (${page.healed}/${page.totalSelectors})\n`;

@@ -43,7 +43,7 @@ export class OllamaClient {
       temperature: 0.3,
       max_tokens: 500,
       top_p: 0.9,
-      repeat_penalty: 1.1
+      repeat_penalty: 1.1,
     };
     this.timeout = config.timeout || 120000;
     this.maxRetries = config.maxRetries ?? 3;
@@ -54,30 +54,29 @@ export class OllamaClient {
     if (dom.length <= maxLength) {
       return dom;
     }
-    console.warn(`DOM content truncated from ${dom.length} to ${maxLength} characters to prevent API overload`);
+    console.warn(
+      `DOM content truncated from ${dom.length} to ${maxLength} characters to prevent API overload`
+    );
     return dom.slice(0, maxLength) + '\n<!-- ...truncated... -->';
   }
 
   private async sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private isRetryableError(status: number, error: unknown): boolean {
     if (status >= 500 && status < 600) return true;
     if (status === 408 || status === 429) return true;
-    
+
     const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
     if (errorMessage.includes('timeout') || errorMessage.includes('econnrefused')) {
       return true;
     }
-    
+
     return false;
   }
 
-  async generateText(
-    prompt: string,
-    options?: OllamaOptions
-  ): Promise<string> {
+  async generateText(prompt: string, options?: OllamaOptions): Promise<string> {
     const maxRetries = options?.retries ?? this.maxRetries;
     const retryDelayMs = options?.retryDelayMs ?? this.retryDelayMs;
     let lastError: Error | null = null;
@@ -87,20 +86,22 @@ export class OllamaClient {
         return await this.attemptGenerateText(prompt, options);
       } catch (error) {
         lastError = error as Error;
-        const isRetryable = error instanceof Error && (
-          error.message.includes('500') ||
-          error.message.includes('timeout') ||
-          error.message.includes('ECONNREFUSED') ||
-          error.message.includes('503') ||
-          error.message.includes('502')
-        );
+        const isRetryable =
+          error instanceof Error &&
+          (error.message.includes('500') ||
+            error.message.includes('timeout') ||
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('503') ||
+            error.message.includes('502'));
 
         if (!isRetryable || attempt === maxRetries) {
           throw error;
         }
 
         const delayMs = retryDelayMs * Math.pow(2, attempt);
-        console.warn(`⚠️ Ollama API error (attempt ${attempt + 1}/${maxRetries + 1}): ${error instanceof Error ? error.message : error}`);
+        console.warn(
+          `⚠️ Ollama API error (attempt ${attempt + 1}/${maxRetries + 1}): ${error instanceof Error ? error.message : error}`
+        );
         console.log(`⏳ Retrying in ${delayMs}ms...`);
         await this.sleep(delayMs);
       }
@@ -109,10 +110,7 @@ export class OllamaClient {
     throw lastError || new Error('Failed to generate text after retries');
   }
 
-  private async attemptGenerateText(
-    prompt: string,
-    options?: OllamaOptions
-  ): Promise<string> {
+  private async attemptGenerateText(prompt: string, options?: OllamaOptions): Promise<string> {
     const url = `${this.ollamaClientBaseUrl}/api/generate`;
     const mergedOptions = { ...this.defaultOptions, ...options };
 
@@ -124,7 +122,7 @@ export class OllamaClient {
         temperature: mergedOptions.temperature,
         num_predict: mergedOptions.max_tokens,
         top_p: mergedOptions.top_p,
-        repeat_penalty: mergedOptions.repeat_penalty
+        repeat_penalty: mergedOptions.repeat_penalty,
       },
     };
 
@@ -258,10 +256,8 @@ try {
 
   async generateSteps(prompt: string, dom?: string): Promise<string> {
     const sanitizedDOM = dom ? this.sanitizeDOM(dom, 5000) : '';
-    const enhancedPrompt = sanitizedDOM 
-      ? `DOM Context:\n${sanitizedDOM}\n\n${prompt}`
-      : prompt;
-    
+    const enhancedPrompt = sanitizedDOM ? `DOM Context:\n${sanitizedDOM}\n\n${prompt}` : prompt;
+
     return await this.generateText(enhancedPrompt, {
       temperature: 0.4,
       max_tokens: 800,
@@ -276,7 +272,7 @@ try {
 
     try {
       const response = await fetch(`${this.ollamaClientBaseUrl}/api/tags`, {
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
       return response.ok;
@@ -291,7 +287,7 @@ try {
 /**
  * Generates test step implementations using the Ollama AI API.
  * Optionally includes DOM context for more accurate code generation.
- * 
+ *
  * @param prompt - The prompt describing what steps to generate
  * @param dom - Optional DOM content to provide context for generation
  * @returns Promise resolving to generated step implementation code
@@ -305,7 +301,7 @@ export async function generateSteps(prompt: string, dom?: string): Promise<strin
 /**
  * Creates an OllamaClient instance with optional configuration.
  * Uses environment variables as defaults for Ollama connection settings.
- * 
+ *
  * @param config - Optional configuration object to override environment variables
  * @returns Configured OllamaClient instance
  */
@@ -313,15 +309,11 @@ export function createOllamaClient(config?: OllamaClientConfig): OllamaClient {
   return new OllamaClient({
     baseUrl: process.env.OLLAMA_BASE_URL,
     model: process.env.OLLAMA_MODEL,
-    timeout: process.env.OLLAMA_TIMEOUT 
-      ? parseInt(process.env.OLLAMA_TIMEOUT)
-      : 120000,
-    maxRetries: process.env.OLLAMA_MAX_RETRIES
-      ? parseInt(process.env.OLLAMA_MAX_RETRIES)
-      : 3,
+    timeout: process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT) : 120000,
+    maxRetries: process.env.OLLAMA_MAX_RETRIES ? parseInt(process.env.OLLAMA_MAX_RETRIES) : 3,
     retryDelayMs: process.env.OLLAMA_RETRY_DELAY_MS
       ? parseInt(process.env.OLLAMA_RETRY_DELAY_MS)
       : 1000,
-    ...config
+    ...config,
   });
 }

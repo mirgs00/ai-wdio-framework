@@ -183,10 +183,7 @@ export abstract class SmartPageObject {
   /**
    * Fill form field with smart locators
    */
-  async fillField(
-    description: ElementDescription | string,
-    value: string
-  ): Promise<void> {
+  async fillField(description: ElementDescription | string, value: string): Promise<void> {
     await LocatorHelper.waitFor(description);
     await LocatorHelper.setValue(description, value);
   }
@@ -194,7 +191,9 @@ export abstract class SmartPageObject {
   /**
    * Fill multiple fields
    */
-  async fillForm(fields: Array<{ description: ElementDescription | string; value: string }>): Promise<void> {
+  async fillForm(
+    fields: Array<{ description: ElementDescription | string; value: string }>
+  ): Promise<void> {
     for (const field of fields) {
       await this.fillField(field.description, field.value);
     }

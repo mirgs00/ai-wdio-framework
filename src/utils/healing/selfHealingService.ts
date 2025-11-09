@@ -31,16 +31,18 @@ class SelfHealingService {
    */
   async healStep(context: HealingContext): Promise<HealingResult> {
     const cacheKey = `${context.pageName}:${context.stepText}`;
-    
+
     if (context.attemptCount > this.maxHealingAttempts) {
       return {
         healed: false,
         reason: `Max healing attempts (${this.maxHealingAttempts}) exceeded`,
-        retryable: false
+        retryable: false,
       };
     }
 
-    console.log(`🔧 Attempting to heal step: "${context.stepText}" (attempt ${context.attemptCount})`);
+    console.log(
+      `🔧 Attempting to heal step: "${context.stepText}" (attempt ${context.attemptCount})`
+    );
 
     try {
       // Step 1: Get current DOM
@@ -68,15 +70,14 @@ class SelfHealingService {
 
       return {
         ...fix,
-        retryable: true
+        retryable: true,
       };
-
     } catch (error) {
       console.error(`❌ Healing failed: ${error instanceof Error ? error.message : error}`);
       return {
         healed: false,
         reason: `Healing service error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        retryable: false
+        retryable: false,
       };
     }
   }
@@ -102,7 +103,10 @@ class SelfHealingService {
 
     const elementsSummary = discoveredElements
       .slice(0, 20) // Limit to prevent token overflow
-      .map(el => `- ${el.tag}${el.id ? '#' + el.id : ''}${el.name ? '[name=' + el.name + ']' : ''}: "${el.text || el.placeholder || ''}" (selector: ${el.selector})`)
+      .map(
+        (el) =>
+          `- ${el.tag}${el.id ? '#' + el.id : ''}${el.name ? '[name=' + el.name + ']' : ''}: "${el.text || el.placeholder || ''}" (selector: ${el.selector})`
+      )
       .join('\n');
 
     const prompt = `You are a test automation expert. A Selenium/WebdriverIO step failed.
@@ -138,7 +142,8 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
     try {
       const response = await ollamaClient.prompt({
         prompt,
-        systemPrompt: 'You are a test automation expert specializing in CSS selectors and WebdriverIO.'
+        systemPrompt:
+          'You are a test automation expert specializing in CSS selectors and WebdriverIO.',
       });
 
       return this.parseHealingResponse(response, context);
@@ -160,7 +165,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
       return {
         healed: false,
         reason: 'Ollama could not identify selector',
-        retryable: false
+        retryable: false,
       };
     }
 
@@ -171,7 +176,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
       healed: true,
       newSelector: selector,
       reason,
-      retryable: true
+      retryable: true,
     };
   }
 
@@ -187,54 +192,67 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
 
     // Try to match step intent with discovered elements
     if (stepLower.includes('username') || stepLower.includes('email')) {
-      const inputEl = discoveredElements.find(el => el.tag === 'input' && el.type === 'text' && el.placeholder?.toLowerCase().includes('user'));
+      const inputEl = discoveredElements.find(
+        (el) =>
+          el.tag === 'input' && el.type === 'text' && el.placeholder?.toLowerCase().includes('user')
+      );
       if (inputEl) {
         return {
           healed: true,
           newSelector: inputEl.selector,
           reason: 'Matched username input field',
-          retryable: true
+          retryable: true,
         };
       }
     }
 
     if (stepLower.includes('password')) {
-      const inputEl = discoveredElements.find(el => el.tag === 'input' && el.type === 'password');
+      const inputEl = discoveredElements.find((el) => el.tag === 'input' && el.type === 'password');
       if (inputEl) {
         return {
           healed: true,
           newSelector: inputEl.selector,
           reason: 'Matched password input field',
-          retryable: true
+          retryable: true,
         };
       }
     }
 
     if (stepLower.includes('button') || stepLower.includes('click')) {
-      const buttonEl = discoveredElements.find(el => el.tag === 'button' || (el.tag === 'input' && el.type === 'submit'));
+      const buttonEl = discoveredElements.find(
+        (el) => el.tag === 'button' || (el.tag === 'input' && el.type === 'submit')
+      );
       if (buttonEl) {
         return {
           healed: true,
           newSelector: buttonEl.selector,
           reason: 'Matched button element',
-          retryable: true
+          retryable: true,
         };
       }
     }
 
-    if (stepLower.includes('heading') || stepLower.includes('title') || stepLower.includes('header')) {
+    if (
+      stepLower.includes('heading') ||
+      stepLower.includes('title') ||
+      stepLower.includes('header')
+    ) {
       const headingEl = pageAnalysis.headings[0];
       if (headingEl) {
         return {
           healed: true,
           newSelector: headingEl.selector,
           reason: 'Matched page heading',
-          retryable: true
+          retryable: true,
         };
       }
     }
 
-    if (stepLower.includes('message') || stepLower.includes('text') || stepLower.includes('error')) {
+    if (
+      stepLower.includes('message') ||
+      stepLower.includes('text') ||
+      stepLower.includes('error')
+    ) {
       // Try success message elements
       const successEl = pageAnalysis.successElements[0];
       if (successEl) {
@@ -242,7 +260,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
           healed: true,
           newSelector: successEl.selector,
           reason: 'Matched success message element',
-          retryable: true
+          retryable: true,
         };
       }
       // Try error elements
@@ -252,7 +270,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
           healed: true,
           newSelector: errorEl.selector,
           reason: 'Matched error message element',
-          retryable: true
+          retryable: true,
         };
       }
     }
@@ -260,19 +278,25 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
     return {
       healed: false,
       reason: 'No matching element found in fallback healing',
-      retryable: false
+      retryable: false,
     };
   }
 
   /**
    * Update page object file with new selector
    */
-  private async updatePageObject(pageName: string, elementName: string, newSelector: string): Promise<void> {
-    const pageObjectPath = path.resolve(`src/page-objects/generated${this.capitalize(pageName)}Page.ts`);
-    
+  private async updatePageObject(
+    pageName: string,
+    elementName: string,
+    newSelector: string
+  ): Promise<void> {
+    const pageObjectPath = path.resolve(
+      `src/page-objects/generated${this.capitalize(pageName)}Page.ts`
+    );
+
     try {
       let content = readFileSync(pageObjectPath, 'utf-8');
-      
+
       // Find the getter and update its selector
       const getterPattern = new RegExp(
         `get ${elementName}[\\s\\S]*?return \\$\\('([^']+)'\\);`,
@@ -288,7 +312,9 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
         console.log(`✅ Updated selector in ${pageName} page object for ${elementName}`);
       }
     } catch (error) {
-      console.warn(`⚠️ Could not update page object: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `⚠️ Could not update page object: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 
@@ -297,13 +323,13 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
    */
   private async updateStepDefinition(stepText: string, newImplementation: string): Promise<void> {
     const stepsPath = path.resolve('src/step-definitions/generatedSteps.ts');
-    
+
     try {
       let content = readFileSync(stepsPath, 'utf-8');
-      
+
       // Escape step text for regex
       const escapedStep = stepText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
+
       // Find the step definition matching this step pattern
       const stepPattern = new RegExp(
         `(\\/\\^[^$]*${escapedStep.substring(0, 30)}[^$]*\\$\\/[^{]*\\{[\\s\\S]*?)\\} catch \\(error\\)`,
@@ -312,15 +338,14 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
 
       if (stepPattern.test(content)) {
         // Update found, replace try-catch block with new implementation
-        content = content.replace(
-          stepPattern,
-          `$1${newImplementation}\n  } catch (error)`
-        );
+        content = content.replace(stepPattern, `$1${newImplementation}\n  } catch (error)`);
         writeFileSync(stepsPath, content);
         console.log(`✅ Updated step definition for: "${stepText}"`);
       }
     } catch (error) {
-      console.warn(`⚠️ Could not update step definition: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `⚠️ Could not update step definition: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 

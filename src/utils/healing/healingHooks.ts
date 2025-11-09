@@ -3,6 +3,7 @@ import { browser } from '@wdio/globals';
 import { selfHealingService } from './selfHealingService';
 import { autoRegenerateService } from './autoRegenerateOnFailure';
 import pageContextManager from '../../page-objects/pageContextManager';
+import { rerunFailedStepsService } from '../test-gen/rerunFailedSteps';
 
 let currentStepText = '';
 let healingAttempted = false;
@@ -12,15 +13,15 @@ let healingAttempted = false;
  * Should be called in step-definitions or main config
  */
 export function setupHealingHooks() {
-  Before(async function() {
+  Before(async function () {
     healingAttempted = false;
     selfHealingService.resetAttempts();
     autoRegenerateService.reset();
   });
 
-  After(async function(context: any) {
+  After(async function (context: any) {
     // Only proceed if step failed
-    if (context.result?.status !== 'failed' || healingAttempted) {
+    if (context.result?.status !== 'failed') {
       return;
     }
 
@@ -30,6 +31,24 @@ export function setupHealingHooks() {
       const currentPageName = getCurrentPageName();
       const currentUrl = await browser.getUrl();
       const sessionActive = await browser.getSession().catch(() => null);
+
+      // Record failed step for rerun capability
+      const featureName = context.pickle?.uri?.split('/').pop()?.replace('.feature', '') || 'unknown';
+      const scenarioName = context.pickle?.name || 'unknown scenario';
+
+      rerunFailedStepsService.recordFailedStep({
+        feature: featureName,
+        scenario: scenarioName,
+        step: stepText,
+        url: currentUrl,
+        errorMessage,
+        pageName: currentPageName,
+      });
+
+      // Skip healing if already attempted in this scenario
+      if (healingAttempted) {
+        return;
+      }
 
       if (!stepText) {
         console.log('⚠️ Could not determine step text for healing');
@@ -52,7 +71,7 @@ export function setupHealingHooks() {
           stepText,
           pageName: currentPageName,
           errorMessage,
-          pageUrl: currentUrl
+          pageUrl: currentUrl,
         });
 
         if (regenerated) {
@@ -72,7 +91,7 @@ export function setupHealingHooks() {
         pageName: currentPageName,
         errorMessage,
         errorType: 'unknown',
-        attemptCount: 1
+        attemptCount: 1,
       });
 
       if (healingResult.healed) {
@@ -99,7 +118,7 @@ function getCurrentPageName(): string {
   try {
     const currentPage = pageContextManager.getCurrentPage();
     const pages = pageContextManager.getAllPages();
-    
+
     for (const [pageName, pageObj] of Object.entries(pages)) {
       if (pageObj === currentPage) {
         return pageName;
@@ -138,13 +157,13 @@ export async function wrapStep<T>(
 
       // Try healing
       console.log(`\n🔧 Attempt ${attempt + 1}: Healing step "${stepDescription}"...`);
-      
+
       const healingResult = await selfHealingService.healStep({
         stepText: stepDescription,
         pageName,
         errorMessage: lastError.message,
         errorType: 'unknown',
-        attemptCount: attempt + 1
+        attemptCount: attempt + 1,
       });
 
       if (!healingResult.healed || !healingResult.retryable) {

@@ -22,20 +22,23 @@ export interface PageSelectorValidationResult {
  * Validates if a selector exists in the DOM
  * Used for pre-execution validation to catch broken selectors early
  */
-export async function validateSelector(selector: string, timeout: number = 2000): Promise<SelectorValidationResult> {
+export async function validateSelector(
+  selector: string,
+  timeout: number = 2000
+): Promise<SelectorValidationResult> {
   try {
     const element = $(selector);
     const exists = await element.isExisting({ timeout });
     return {
       selector,
       exists,
-      error: exists ? undefined : 'Selector did not match any elements'
+      error: exists ? undefined : 'Selector did not match any elements',
     };
   } catch (error) {
     return {
       selector,
       exists: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -50,7 +53,7 @@ export async function validatePageSelectors(
 ): Promise<PageSelectorValidationResult> {
   logger.info(`🔍 Validating selectors for page: ${pageName}`, {
     section: 'SELECTOR_VALIDATION',
-    details: { pageName, selectorCount: Object.keys(selectors).length, pageUrl }
+    details: { pageName, selectorCount: Object.keys(selectors).length, pageUrl },
   });
 
   const results: SelectorValidationResult[] = [];
@@ -61,7 +64,7 @@ export async function validatePageSelectors(
     results.push({
       selector: `${name}: ${selector}`,
       exists: result.exists,
-      error: result.error
+      error: result.error,
     });
 
     if (result.exists) {
@@ -69,14 +72,15 @@ export async function validatePageSelectors(
     } else {
       logger.warn(`❌ Invalid selector: ${name}`, {
         section: 'SELECTOR_VALIDATION',
-        details: { selector, error: result.error }
+        details: { selector, error: result.error },
       });
     }
   }
 
   const totalSelectors = Object.keys(selectors).length;
   const invalidSelectors = totalSelectors - validCount;
-  const healthPercentage = totalSelectors > 0 ? Math.round((validCount / totalSelectors) * 100) : 100;
+  const healthPercentage =
+    totalSelectors > 0 ? Math.round((validCount / totalSelectors) * 100) : 100;
   const isHealthy = invalidSelectors === 0;
 
   const validation: PageSelectorValidationResult = {
@@ -87,7 +91,7 @@ export async function validatePageSelectors(
     invalidSelectors,
     results,
     isHealthy,
-    healthPercentage
+    healthPercentage,
   };
 
   logger.info(`📊 Selector validation complete for ${pageName}`, {
@@ -98,8 +102,8 @@ export async function validatePageSelectors(
       validSelectors: validCount,
       invalidSelectors,
       healthPercentage: `${healthPercentage}%`,
-      isHealthy
-    }
+      isHealthy,
+    },
   });
 
   return validation;
@@ -185,17 +189,17 @@ export function exportValidationResults(
     timestamp: new Date().toISOString(),
     summary: {
       totalPages: results.length,
-      healthyPages: results.filter(r => r.isHealthy).length,
+      healthyPages: results.filter((r) => r.isHealthy).length,
       totalSelectors: results.reduce((sum, r) => sum + r.totalSelectors, 0),
       validSelectors: results.reduce((sum, r) => sum + r.validSelectors, 0),
-      invalidSelectors: results.reduce((sum, r) => sum + r.invalidSelectors, 0)
+      invalidSelectors: results.reduce((sum, r) => sum + r.invalidSelectors, 0),
     },
-    results
+    results,
   };
 
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
   logger.info(`📁 Validation results exported to ${filePath}`, {
     section: 'SELECTOR_VALIDATION',
-    details: { filePath }
+    details: { filePath },
   });
 }

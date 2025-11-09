@@ -1,6 +1,6 @@
 /**
  * Instruction Parser - Orchestrates end-to-end test generation
- * 
+ *
  * Workflow:
  * 1. Parse instructions JSON
  * 2. Extract page elements and generate PageObject
@@ -12,7 +12,7 @@ interface PageInfo {
   name: string;
   url: string;
   description?: string;
-  elements?: string[];  // Optional: explicit element names for this page (overrides auto-detection)
+  elements?: string[]; // Optional: explicit element names for this page (overrides auto-detection)
 }
 
 interface InstructionTestCase {
@@ -20,7 +20,7 @@ interface InstructionTestCase {
   description: string;
   steps: string[];
   tags: string[];
-  pages?: PageInfo[];  // Optional: specify which pages are involved
+  pages?: PageInfo[]; // Optional: specify which pages are involved
 }
 
 interface Instructions {
@@ -28,7 +28,7 @@ interface Instructions {
   url: string;
   description: string;
   testCases: InstructionTestCase[];
-  pages?: PageInfo[];  // Optional: predefined page list
+  pages?: PageInfo[]; // Optional: predefined page list
 }
 
 interface PageElement {
@@ -40,11 +40,11 @@ interface PageElement {
 
 interface GeneratedArtifacts {
   pageObject: string;
-  pageObjects?: { [pageName: string]: string };  // Multiple page objects
+  pageObjects?: { [pageName: string]: string }; // Multiple page objects
   featureFile: string;
   stepDefinitions: string;
   pageElements: PageElement[];
-  pageContextManager?: string;  // Manager for tracking current page
+  pageContextManager?: string; // Manager for tracking current page
 }
 
 interface StepDefinitionInfo {
@@ -53,7 +53,7 @@ interface StepDefinitionInfo {
   stepContent: string;
   regex: string;
   implementation: string;
-  params?: string[];  // Optional: parameter names captured from regex
+  params?: string[]; // Optional: parameter names captured from regex
 }
 
 interface GherkinStepInfo {
@@ -69,17 +69,17 @@ export class InstructionParser {
    */
   private detectPages(instructions: Instructions): Map<string, PageInfo> {
     const pages = new Map<string, PageInfo>();
-    
+
     // Start with the base URL as the first page
     pages.set('login', {
       name: 'login',
       url: instructions.url,
-      description: 'Login page'
+      description: 'Login page',
     });
 
     // Check if instructions already have predefined pages
     if (instructions.pages && instructions.pages.length > 0) {
-      instructions.pages.forEach(page => {
+      instructions.pages.forEach((page) => {
         pages.set(page.name, page);
       });
       return pages;
@@ -89,25 +89,29 @@ export class InstructionParser {
     instructions.testCases.forEach((testCase) => {
       testCase.steps.forEach((step) => {
         const stepLower = step.toLowerCase();
-        
+
         // Detect dashboard/success page (after successful login)
-        if (stepLower.includes('logged in') || stepLower.includes('dashboard') || stepLower.includes('success')) {
+        if (
+          stepLower.includes('logged in') ||
+          stepLower.includes('dashboard') ||
+          stepLower.includes('success')
+        ) {
           if (!pages.has('dashboard')) {
             pages.set('dashboard', {
               name: 'dashboard',
               url: `${instructions.url}logged-in-successfully/`,
-              description: 'Dashboard page after successful login'
+              description: 'Dashboard page after successful login',
             });
           }
         }
-        
+
         // Detect error/validation page
         if (stepLower.includes('error') && stepLower.includes('message')) {
           if (!pages.has('error')) {
             pages.set('error', {
               name: 'error',
               url: instructions.url,
-              description: 'Error/validation page'
+              description: 'Error/validation page',
             });
           }
         }
@@ -115,7 +119,7 @@ export class InstructionParser {
 
       // Check pages from test case
       if (testCase.pages) {
-        testCase.pages.forEach(page => {
+        testCase.pages.forEach((page) => {
           if (!pages.has(page.name)) {
             pages.set(page.name, page);
           }
@@ -161,10 +165,7 @@ export class InstructionParser {
         }
 
         // Extract submit button
-        if (
-          step.toLowerCase().includes('submit') ||
-          step.toLowerCase().includes('click')
-        ) {
+        if (step.toLowerCase().includes('submit') || step.toLowerCase().includes('click')) {
           if (!elements.has('submit')) {
             elements.set('submit', {
               name: 'submit',
@@ -203,15 +204,16 @@ export class InstructionParser {
               name: 'success',
               type: 'text',
               description: 'Success message',
-              accessor: '#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]',
+              accessor:
+                '#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]',
             });
           }
         }
 
         // Extract generic status messages
         if (
-          step.toLowerCase().includes('message') && 
-          !step.toLowerCase().includes('error') && 
+          step.toLowerCase().includes('message') &&
+          !step.toLowerCase().includes('error') &&
           !step.toLowerCase().includes('success')
         ) {
           if (!elements.has('message')) {
@@ -258,7 +260,7 @@ export class InstructionParser {
     // If page has explicit elements defined, use those
     if (pageInfo.elements && pageInfo.elements.length > 0) {
       return pageInfo.elements
-        .map(elemName => allElements.get(elemName))
+        .map((elemName) => allElements.get(elemName))
         .filter((elem): elem is PageElement => elem !== undefined);
     }
 
@@ -269,32 +271,50 @@ export class InstructionParser {
     instructions.testCases.forEach((testCase) => {
       testCase.steps.forEach((step) => {
         const stepLower = step.toLowerCase();
-        
+
         // Check if this step is about the current page
-        const isPageStep = pageKeywords.some(keyword => stepLower.includes(keyword));
+        const isPageStep = pageKeywords.some((keyword) => stepLower.includes(keyword));
 
         if (isPageStep || this.isStepForAllPages(pageName, step)) {
           // Extract elements mentioned in this step
           if (stepLower.includes('username')) pageElements.add('username');
           if (stepLower.includes('password')) pageElements.add('password');
-          if (stepLower.includes('submit') || stepLower.includes('click')) pageElements.add('submit');
-          
+          if (stepLower.includes('submit') || stepLower.includes('click'))
+            pageElements.add('submit');
+
           // Extract error-specific elements
-          if (stepLower.includes('error') || stepLower.includes('invalid') || stepLower.includes('required') || stepLower.includes('format')) {
+          if (
+            stepLower.includes('error') ||
+            stepLower.includes('invalid') ||
+            stepLower.includes('required') ||
+            stepLower.includes('format')
+          ) {
             pageElements.add('error');
           }
-          
+
           // Extract success-specific elements
-          if (stepLower.includes('success') || stepLower.includes('logged in') || stepLower.includes('successfully')) {
+          if (
+            stepLower.includes('success') ||
+            stepLower.includes('logged in') ||
+            stepLower.includes('successfully')
+          ) {
             pageElements.add('success');
           }
-          
+
           // Extract generic message
-          if (stepLower.includes('message') && !stepLower.includes('error') && !stepLower.includes('success')) {
+          if (
+            stepLower.includes('message') &&
+            !stepLower.includes('error') &&
+            !stepLower.includes('success')
+          ) {
             pageElements.add('message');
           }
-          
-          if (stepLower.includes('heading') || stepLower.includes('logged in') || stepLower.includes('successfully')) {
+
+          if (
+            stepLower.includes('heading') ||
+            stepLower.includes('logged in') ||
+            stepLower.includes('successfully')
+          ) {
             pageElements.add('loggedInHeading');
           }
         }
@@ -309,7 +329,7 @@ export class InstructionParser {
 
     // Convert element names to PageElement objects
     return Array.from(pageElements)
-      .map(elemName => allElements.get(elemName))
+      .map((elemName) => allElements.get(elemName))
       .filter((elem): elem is PageElement => elem !== undefined);
   }
 
@@ -330,12 +350,12 @@ export class InstructionParser {
    */
   private isStepForAllPages(pageName: string, step: string): boolean {
     const stepLower = step.toLowerCase();
-    
+
     // Steps that might apply to all pages
     if (stepLower.includes('navigate') || stepLower.includes('open')) {
       return true;
     }
-    
+
     // For login page, include setup steps
     if (pageName === 'login' && (stepLower.includes('enter') || stepLower.includes('fills'))) {
       return !stepLower.includes('logged in') && !stepLower.includes('success');
@@ -347,10 +367,7 @@ export class InstructionParser {
   /**
    * Generate PageObject code from extracted elements
    */
-  private generatePageObject(
-    instructions: Instructions,
-    elements: PageElement[]
-  ): string {
+  private generatePageObject(instructions: Instructions, elements: PageElement[]): string {
     const elementAccessors = elements
       .map(
         (elem) => `
@@ -398,9 +415,9 @@ export default new GeneratedPage();`;
     allElementsMap?: Map<string, PageElement>
   ): { [pageName: string]: string } {
     const pageObjects: { [pageName: string]: string } = {};
-    
+
     // Convert elements array to map if not provided
-    const elementsMap = allElementsMap || new Map(elements.map(e => [e.name, e]));
+    const elementsMap = allElementsMap || new Map(elements.map((e) => [e.name, e]));
 
     pages.forEach((pageInfo, pageName) => {
       // Extract page-specific elements (respects explicit elements if defined)
@@ -412,7 +429,7 @@ export default new GeneratedPage();`;
       );
 
       // Log page-specific elements for debugging
-      const elementNames = pageSpecificElements.map(e => e.name).join(', ');
+      const elementNames = pageSpecificElements.map((e) => e.name).join(', ');
       console.log(`  📄 ${pageName}: [${elementNames || 'no elements'}]`);
 
       const elementAccessors = pageSpecificElements
@@ -432,7 +449,7 @@ export default new GeneratedPage();`;
       const instanceName = pageName.toLowerCase() + 'Page';
 
       const elementCount = pageSpecificElements.length;
-      const elementList = pageSpecificElements.map(e => e.name).join(', ');
+      const elementList = pageSpecificElements.map((e) => e.name).join(', ');
 
       pageObjects[pageName] = `// Auto-generated Page Object for ${pageInfo.name}
 // Page URL: ${pageInfo.url}
@@ -469,12 +486,13 @@ export default new ${className}();`;
   private generatePageContextManager(pages: Map<string, PageInfo>): string {
     const pageNames = Array.from(pages.keys());
     const importStatements = pageNames
-      .map(name => `import ${name}Page from './generated${name.charAt(0).toUpperCase() + name.slice(1)}Page';`)
+      .map(
+        (name) =>
+          `import ${name}Page from './generated${name.charAt(0).toUpperCase() + name.slice(1)}Page';`
+      )
       .join('\n');
 
-    const pageMap = pageNames
-      .map(name => `  '${name}': ${name}Page,`)
-      .join('\n');
+    const pageMap = pageNames.map((name) => `  '${name}': ${name}Page,`).join('\n');
 
     return `// Auto-generated Page Context Manager
 // Manages page objects across different pages in the test flow
@@ -522,10 +540,16 @@ export default new PageContextManager();`;
       // Smart keyword assignment based on step content
       let keyword = 'When';
       const stepLower = step.toLowerCase();
-      
+
       if (index === 0 || stepLower.includes('navigate') || stepLower.includes('open')) {
         keyword = 'Given';
-      } else if (stepLower.includes('see') || stepLower.includes('error') || stepLower.includes('success') || stepLower.includes('message') || stepLower.includes('dashboard')) {
+      } else if (
+        stepLower.includes('see') ||
+        stepLower.includes('error') ||
+        stepLower.includes('success') ||
+        stepLower.includes('message') ||
+        stepLower.includes('dashboard')
+      ) {
         keyword = 'Then';
       }
       // Note: We use 'When' instead of 'And' to avoid function compatibility issues
@@ -536,7 +560,7 @@ export default new PageContextManager();`;
       gherkinSteps.push({
         keyword,
         step: refinedStep,
-        original: step
+        original: step,
       });
     });
 
@@ -552,25 +576,25 @@ export default new PageContextManager();`;
     // Extract values in quotes BEFORE lowercasing to preserve case
     const quotedValues: Map<string, string> = new Map();
     let placeholder = 0;
-    
+
     const stepWithPlaceholders = step.replace(/'([^']+)'/g, (match, value) => {
-      const key = `__preserve_${placeholder}__`;  // Use lowercase for consistency
+      const key = `__preserve_${placeholder}__`; // Use lowercase for consistency
       quotedValues.set(key, value);
       placeholder++;
       return key;
     });
-    
+
     // Now lowercase the step text (but not the values)
     let normalized = stepWithPlaceholders
       .replace(/^User /, 'the user ')
       .toLowerCase()
       .replace(/^\w/, (c) => c.toUpperCase());
-    
+
     // Restore the preserved values with proper quoting
     quotedValues.forEach((value, key) => {
       normalized = normalized.replace(key, `"${value}"`);
     });
-    
+
     return normalized;
   }
 
@@ -605,7 +629,7 @@ export default new PageContextManager();`;
       .map((testCase) => {
         const tags = testCase.tags.map((tag) => `@${tag}`).join(' ');
         const gherkinSteps = this.instructionStepsToGherkin(testCase.steps);
-        
+
         const stepLines = gherkinSteps
           .map((stepObj) => `  ${stepObj.keyword} ${stepObj.step}`)
           .join('\n');
@@ -638,24 +662,24 @@ ${scenarios}`;
 
     testCases.forEach((testCase) => {
       const gherkinSteps = this.instructionStepsToGherkin(testCase.steps);
-      
+
       gherkinSteps.forEach((stepObj, index) => {
         // Generate regex first to use as the deduplication key
         const regex = this.stepToRegex(stepObj.step);
-        
+
         // Use regex pattern as key for deduplication - prevents duplicates with different param values
         const key = `${stepObj.keyword}|${regex}`;
-        
+
         if (!processedRegexPatterns.has(key)) {
           // Extract parameter names from the step (e.g., "username", "password")
           const params = this.extractParameterNames(stepObj.step);
-          
+
           // Generate implementation with knowledge of extracted parameters and pages
           const implementation = this.generateStepImplementation(
             stepObj.original,
             stepObj.step,
             stepObj.keyword,
-            params,  // Pass params so implementation can use them
+            params, // Pass params so implementation can use them
             hasMultiplePages
           );
 
@@ -665,26 +689,28 @@ ${scenarios}`;
             stepContent: stepObj.step,
             regex,
             implementation,
-            params  // Store params for use in function signature
+            params, // Store params for use in function signature
           });
-          
+
           processedRegexPatterns.add(key);
         } else {
           // Log when duplicate is skipped
-          console.log(`ℹ️  Skipping duplicate step pattern: ${stepObj.keyword}(${regex}) for "${stepObj.step}"`);
+          console.log(
+            `ℹ️  Skipping duplicate step pattern: ${stepObj.keyword}(${regex}) for "${stepObj.step}"`
+          );
         }
       });
     });
 
     const definitions = Array.from(stepDefinitions.values())
-      .map(
-        (def) => {
-          // Build function signature with captured parameters
-          const funcParams = (def as any).params && (def as any).params.length > 0 
+      .map((def) => {
+        // Build function signature with captured parameters
+        const funcParams =
+          (def as any).params && (def as any).params.length > 0
             ? `, async function (${(def as any).params.join(', ')}) {`
             : `, async function () {`;
-          
-          return `/**
+
+        return `/**
  * ${def.gherkinStep}
  */
 ${def.keyword}(${def.regex}${funcParams}
@@ -692,15 +718,16 @@ ${def.implementation}
 });
 
 `;
-        }
-      )
+      })
       .join('');
 
     // Log deduplication summary
     const totalStepsProcessed = testCases.reduce((sum, tc) => sum + tc.steps.length, 0);
     const duplicateCount = totalStepsProcessed - stepDefinitions.size;
     if (duplicateCount > 0) {
-      console.log(`📌 Deduplication Summary: Processed ${totalStepsProcessed} steps, generated ${stepDefinitions.size} unique definitions (removed ${duplicateCount} duplicate(s))`);
+      console.log(
+        `📌 Deduplication Summary: Processed ${totalStepsProcessed} steps, generated ${stepDefinitions.size} unique definitions (removed ${duplicateCount} duplicate(s))`
+      );
     }
 
     // Build imports based on page count
@@ -731,7 +758,7 @@ setupHealingHooks();
 
 ${definitions}`;
   }
-  
+
   /**
    * Extract parameter names from a Gherkin step
    * E.g., 'the user enters username "student"' -> ["username"]
@@ -741,7 +768,7 @@ ${definitions}`;
   private extractParameterNames(step: string): string[] {
     const params: string[] = [];
     const lowerStep = step.toLowerCase();
-    
+
     // Check for common parameter patterns
     if (lowerStep.includes('enters username')) {
       params.push('username');
@@ -772,7 +799,7 @@ ${definitions}`;
         params.push(`param${i + 1}`);
       }
     }
-    
+
     return params;
   }
 
@@ -789,20 +816,20 @@ ${definitions}`;
 
     // Step 3: Escape special regex characters (but preserve the placeholder)
     regex = regex
-      .replace(/\\/g, '\\\\')  // Escape backslash first
-      .replace(/\./g, '\\.')   // Escape dots
-      .replace(/\?/g, '\\?')   // Escape question marks
-      .replace(/\*/g, '\\*')   // Escape asterisks
-      .replace(/\+/g, '\\+')   // Escape plus signs
-      .replace(/\[/g, '\\[')   // Escape brackets
+      .replace(/\\/g, '\\\\') // Escape backslash first
+      .replace(/\./g, '\\.') // Escape dots
+      .replace(/\?/g, '\\?') // Escape question marks
+      .replace(/\*/g, '\\*') // Escape asterisks
+      .replace(/\+/g, '\\+') // Escape plus signs
+      .replace(/\[/g, '\\[') // Escape brackets
       .replace(/\]/g, '\\]')
-      .replace(/\(/g, '\\(')   // Escape parentheses
+      .replace(/\(/g, '\\(') // Escape parentheses
       .replace(/\)/g, '\\)')
-      .replace(/\{/g, '\\{')   // Escape braces
+      .replace(/\{/g, '\\{') // Escape braces
       .replace(/\}/g, '\\}')
-      .replace(/\|/g, '\\|')   // Escape pipes
-      .replace(/\^/g, '\\^')   // Escape carets
-      .replace(/\$/g, '\\$');   // Escape dollar signs
+      .replace(/\|/g, '\\|') // Escape pipes
+      .replace(/\^/g, '\\^') // Escape carets
+      .replace(/\$/g, '\\$'); // Escape dollar signs
 
     // Step 4: Replace placeholder with actual capture group
     regex = regex.replace(/__capture__/g, '"([^"]*)"');
@@ -826,7 +853,10 @@ ${definitions}`;
     const pageRef = hasMultiplePages ? 'pageContextManager.getCurrentPage()' : 'generatedPage';
 
     // Navigation steps (Given)
-    if (keyword === 'Given' && (gherkin_lower.includes('navigates') || gherkin_lower.includes('opens'))) {
+    if (
+      keyword === 'Given' &&
+      (gherkin_lower.includes('navigates') || gherkin_lower.includes('opens'))
+    ) {
       if (hasMultiplePages && gherkin_lower.includes('dashboard')) {
         return `  try {
     pageContextManager.setCurrentPage('dashboard');
@@ -881,7 +911,12 @@ ${definitions}`;
     }
 
     // Verification steps (Then) - use parameters if available
-    if (keyword === 'Then' || gherkin_lower.includes('sees') || gherkin_lower.includes('message') || gherkin_lower.includes('dashboard')) {
+    if (
+      keyword === 'Then' ||
+      gherkin_lower.includes('sees') ||
+      gherkin_lower.includes('message') ||
+      gherkin_lower.includes('dashboard')
+    ) {
       // Auto-detect page context for verifications
       let pageRefForVerify = pageRef;
       if (hasMultiplePages) {
@@ -893,16 +928,18 @@ ${definitions}`;
       }
 
       // Detect if this is checking for an error message
-      const isErrorStep = gherkin_lower.includes('error') || 
-                         gherkin_lower.includes('invalid') || 
-                         gherkin_lower.includes('required') ||
-                         gherkin_lower.includes('format');
-      
+      const isErrorStep =
+        gherkin_lower.includes('error') ||
+        gherkin_lower.includes('invalid') ||
+        gherkin_lower.includes('required') ||
+        gherkin_lower.includes('format');
+
       // Detect if this is checking for a success message
-      const isSuccessStep = gherkin_lower.includes('logged in') || 
-                           gherkin_lower.includes('successfully') || 
-                           gherkin_lower.includes('success') ||
-                           gherkin_lower.includes('header');
+      const isSuccessStep =
+        gherkin_lower.includes('logged in') ||
+        gherkin_lower.includes('successfully') ||
+        gherkin_lower.includes('success') ||
+        gherkin_lower.includes('header');
 
       // Select appropriate element based on step type
       let elementSelector = `${pageRefForVerify}.message_text`;
@@ -947,35 +984,32 @@ ${definitions}`;
   /**
    * Main orchestration method - generates all artifacts from instructions
    */
-  public generateFromInstructions(
-    instructions: Instructions
-  ): GeneratedArtifacts {
+  public generateFromInstructions(instructions: Instructions): GeneratedArtifacts {
     // Step 0: Detect pages from instructions
     const pages = this.detectPages(instructions);
     console.log(`📄 Detected ${pages.size} page(s): ${Array.from(pages.keys()).join(', ')}`);
 
     // Step 1: Extract page elements
     const pageElements = this.extractPageElements(instructions);
-    const elementsMap = new Map(pageElements.map(e => [e.name, e]));
+    const elementsMap = new Map(pageElements.map((e) => [e.name, e]));
 
     // Step 2: Generate aligned page object(s)
     const pageObject = this.generatePageObject(instructions, pageElements);
-    const pageObjects = this.generateMultiplePageObjects(instructions, pages, pageElements, elementsMap);
+    const pageObjects = this.generateMultiplePageObjects(
+      instructions,
+      pages,
+      pageElements,
+      elementsMap
+    );
 
     // Step 3: Generate page context manager
     const pageContextManager = this.generatePageContextManager(pages);
 
     // Step 4: Generate aligned feature file
-    const featureFile = this.generateFeatureFile(
-      instructions,
-      instructions.testCases
-    );
+    const featureFile = this.generateFeatureFile(instructions, instructions.testCases);
 
     // Step 5: Generate matching step definitions (page-aware)
-    const stepDefinitions = this.generateStepDefinitions(
-      instructions.testCases,
-      pages
-    );
+    const stepDefinitions = this.generateStepDefinitions(instructions.testCases, pages);
 
     return {
       pageObject,

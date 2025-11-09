@@ -18,13 +18,13 @@ export async function getDOMSnapshot(url: string): Promise<string> {
   if (!isValidUrl(url)) {
     throw new Error(`Invalid URL: ${url}. Only http:// and https:// URLs are allowed.`);
   }
-  
+
   try {
     console.log(`🌐 Fetching DOM from: ${url}`);
     const response = await axios.get(url, {
       timeout: 30000,
       maxRedirects: 5,
-      validateStatus: (status) => status >= 200 && status < 400
+      validateStatus: (status) => status >= 200 && status < 400,
     });
     console.log('✅ DOM fetched successfully');
     return response.data;
@@ -33,7 +33,9 @@ export async function getDOMSnapshot(url: string): Promise<string> {
       if (error.code === 'ECONNREFUSED') {
         throw new Error(`Connection refused: ${url}. Please check if the URL is accessible.`);
       } else if (error.response) {
-        throw new Error(`Failed to fetch DOM: HTTP ${error.response.status} - ${error.response.statusText}`);
+        throw new Error(
+          `Failed to fetch DOM: HTTP ${error.response.status} - ${error.response.statusText}`
+        );
       } else if (error.request) {
         throw new Error(`No response received from ${url}. Check your network connection.`);
       }

@@ -13,14 +13,18 @@ export class TestDataGenerator {
   private commonEmails = ['test@example.com', 'qa@automation.com', 'user@test.com'];
   private invalidEmails = ['invalid.email', 'test@', '@example.com', 'test @example.com'];
   private shortPasswords = ['Pass1', 'Pwd123', 'Sec1'];
-  private specialCharacters = ['!@#$%^&*()', '<script>alert(1)</script>', '"; DROP TABLE users; --'];
+  private specialCharacters = [
+    '!@#$%^&*()',
+    '<script>alert(1)</script>',
+    '"; DROP TABLE users; --',
+  ];
 
   generateTestDataForForm(form: FormInfo): TestDataSet {
     const testData: TestDataSet = {
       valid: {},
       invalid: {},
       boundary: {},
-      empty: {}
+      empty: {},
     };
 
     for (const field of form.fields) {
@@ -73,8 +77,8 @@ export class TestDataGenerator {
       return `This is a valid ${field.label || field.name} entry with appropriate content.`;
     }
 
-    return field.placeholder 
-      ? field.placeholder.replace(/[*:]/g, '') 
+    return field.placeholder
+      ? field.placeholder.replace(/[*:]/g, '')
       : this.generateRandomString(10, true);
   }
 
@@ -149,7 +153,7 @@ export class TestDataGenerator {
       valid: {},
       invalid: {},
       boundary: {},
-      empty: {}
+      empty: {},
     };
 
     for (const field of fields) {
@@ -165,14 +169,14 @@ export class TestDataGenerator {
   getValidCredentials(): { username: string; password: string } {
     return {
       username: this.commonEmails[0],
-      password: this.commonPasswords[0]
+      password: this.commonPasswords[0],
     };
   }
 
   getInvalidCredentials(): { username: string; password: string } {
     return {
       username: this.invalidEmails[0],
-      password: this.shortPasswords[0]
+      password: this.shortPasswords[0],
     };
   }
 
@@ -182,7 +186,7 @@ export class TestDataGenerator {
       password: this.commonPasswords[0],
       username: this.commonUsernames[0],
       fullName: 'Test User',
-      phone: '+1-555-0123'
+      phone: '+1-555-0123',
     };
   }
 
@@ -192,7 +196,7 @@ export class TestDataGenerator {
       password: this.shortPasswords[0],
       username: 'a',
       fullName: this.specialCharacters[0],
-      phone: 'invalid'
+      phone: 'invalid',
     };
   }
 
@@ -200,7 +204,7 @@ export class TestDataGenerator {
     const chars = alphanumeric
       ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
       : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-    
+
     let result = '';
     for (let i = 0; i < length; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));

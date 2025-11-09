@@ -15,7 +15,7 @@ export interface DiscoveredElement {
 /**
  * Parses HTML and extracts useful UI elements for testing.
  * Discovers interactive elements like inputs, buttons, links, and custom components.
- * 
+ *
  * @param html - The HTML content to parse
  * @returns Array of discovered elements with selectors and metadata
  */
@@ -24,9 +24,17 @@ export function discoverElementsFromDOM(html: string): DiscoveredElement[] {
   const elements: DiscoveredElement[] = [];
 
   const selectors = [
-    'input', 'button', 'a', 'select', 'textarea',
-    '[role="button"]', '[role="link"]', '[role="textbox"]',
-    '[contenteditable]', '[aria-label]', '[data-testid]'
+    'input',
+    'button',
+    'a',
+    'select',
+    'textarea',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="textbox"]',
+    '[contenteditable]',
+    '[aria-label]',
+    '[data-testid]',
   ];
 
   $(selectors.join(',')).each((_, el) => {
@@ -69,7 +77,7 @@ export function discoverElementsFromDOM(html: string): DiscoveredElement[] {
       selector,
       placeholder,
       ariaLabel,
-      role
+      role,
     });
   });
 

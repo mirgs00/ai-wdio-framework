@@ -22,7 +22,7 @@ export class EnhancedSelectorGenerator {
     return {
       primary: primarySelector,
       fallbacks,
-      multiSelector
+      multiSelector,
     };
   }
 
@@ -143,13 +143,16 @@ export class EnhancedSelectorGenerator {
   /**
    * Generates attribute-based fallback selectors
    */
-  private static generateAttributeFallbacks(primarySelector: string, description: string): string[] {
+  private static generateAttributeFallbacks(
+    primarySelector: string,
+    description: string
+  ): string[] {
     const fallbacks: string[] = [];
 
     // Extract potential class names from selector
     const classMatches = primarySelector.match(/\.([a-zA-Z0-9-_]+)/g);
     if (classMatches) {
-      classMatches.slice(0, 2).forEach(match => {
+      classMatches.slice(0, 2).forEach((match) => {
         const className = match.replace('.', '');
         fallbacks.push(`[class*="${className}"]`);
       });
@@ -159,7 +162,7 @@ export class EnhancedSelectorGenerator {
     fallbacks.push('[role="button"]');
     fallbacks.push('[aria-label*="submit"]');
 
-    return fallbacks.filter(f => f !== primarySelector);
+    return fallbacks.filter((f) => f !== primarySelector);
   }
 
   /**
@@ -191,7 +194,7 @@ export class EnhancedSelectorGenerator {
       logger.logElementDiscovery(originalSelector, true, {
         description,
         validationAttempts,
-        quality: 'high'
+        quality: 'high',
       });
       return originalSelector;
     }
@@ -199,7 +202,9 @@ export class EnhancedSelectorGenerator {
     // Add class-based specificity for better reliability
     if (originalSelector.startsWith('[')) {
       // Already attribute-based, add more specificity
-      return originalSelector.replace(/\]$/, ', [class*="active"]').replace(/\], \[class/, '], [class');
+      return originalSelector
+        .replace(/\]$/, ', [class*="active"]')
+        .replace(/\], \[class/, '], [class');
     }
 
     // For simple selectors, add fallbacks
@@ -235,7 +240,7 @@ export class EnhancedSelectorGenerator {
 
     return {
       stable: issues.length === 0,
-      issues
+      issues,
     };
   }
 }

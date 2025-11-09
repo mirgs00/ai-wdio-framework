@@ -3,7 +3,13 @@
  * Re-exports all Smart Locator utilities for easy importing
  */
 
-export { SmartLocator, smartLocator, LocatorStrategy, SmartLocatorCache, ElementDescription } from './smartLocator';
+export {
+  SmartLocator,
+  smartLocator,
+  LocatorStrategy,
+  SmartLocatorCache,
+  ElementDescription,
+} from './smartLocator';
 export { LocatorHelper, SmartElementOptions } from './locatorHelper';
 export { SmartPageObject } from './smartPageObject';
 

@@ -14,19 +14,14 @@ async function runDemo() {
 
   // Step 1: Load instructions
   console.log('📖 STEP 1: Loading instructions from file...\n');
-  const instructionsPath = path.join(
-    process.cwd(),
-    'instructions.json'
-  );
+  const instructionsPath = path.join(process.cwd(), 'instructions.json');
 
   if (!fs.existsSync(instructionsPath)) {
     console.error(`❌ Instructions file not found at ${instructionsPath}`);
     process.exit(1);
   }
 
-  const instructions = JSON.parse(
-    fs.readFileSync(instructionsPath, 'utf-8')
-  );
+  const instructions = JSON.parse(fs.readFileSync(instructionsPath, 'utf-8'));
 
   console.log(`✅ Loaded: ${instructions.projectName}`);
   console.log(`📍 URL: ${instructions.url}`);
@@ -39,10 +34,7 @@ async function runDemo() {
   const artifacts = parser.generateFromInstructions(instructions);
 
   // Step 3: Show extracted elements
-  console.log(
-    '🔍 Extracted Page Elements:',
-    artifacts.pageElements.length
-  );
+  console.log('🔍 Extracted Page Elements:', artifacts.pageElements.length);
   artifacts.pageElements.forEach((elem) => {
     console.log(`  • ${elem.name} (${elem.type}): ${elem.description}`);
   });
@@ -71,11 +63,7 @@ async function runDemo() {
   const outputDir = path.join(process.cwd(), 'src');
 
   // Save page object
-  const pageObjectPath = path.join(
-    outputDir,
-    'page-objects',
-    'generatedPage.ts'
-  );
+  const pageObjectPath = path.join(outputDir, 'page-objects', 'generatedPage.ts');
   fs.writeFileSync(pageObjectPath, artifacts.pageObject);
   console.log(`✅ Page Object saved to: ${pageObjectPath}`);
 
@@ -86,11 +74,7 @@ async function runDemo() {
   console.log(`✅ Feature File saved to: ${featurePath}`);
 
   // Save step definitions
-  const stepsPath = path.join(
-    outputDir,
-    'step-definitions',
-    'generatedSteps.ts'
-  );
+  const stepsPath = path.join(outputDir, 'step-definitions', 'generatedSteps.ts');
   fs.writeFileSync(stepsPath, artifacts.stepDefinitions);
   console.log(`✅ Step Definitions saved to: ${stepsPath}`);
 

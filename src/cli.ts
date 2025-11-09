@@ -13,10 +13,15 @@ import { createOllamaClient } from './utils/ai/ollamaClient';
 import { TIMEOUTS } from './utils/constants';
 import { InstructionParser } from './utils/test-gen/instructionParser';
 import { logger } from './utils/logger';
-import { validateAllPageSelectors, generateValidationReport, exportValidationResults } from './utils/healing/selectorValidator';
+import {
+  validateAllPageSelectors,
+  generateValidationReport,
+  exportValidationResults,
+} from './utils/healing/selectorValidator';
 import { TestFailureTracker } from './utils/test-gen/testFailureTracker';
 import { DuplicateGetterDetector } from './utils/test-gen/duplicateGetterDetector';
 import { HealingWorkflow } from './utils/healing/healingWorkflow';
+import { rerunFailedStepsService } from './utils/test-gen/rerunFailedSteps';
 
 interface TestGenerationConfig {
   ollamaModel?: string;
@@ -27,7 +32,7 @@ interface TestGenerationConfig {
 
 function validateEnvironment(): void {
   console.log('🔍 Validating environment...');
-  
+
   try {
     execSync('npx wdio --version', { stdio: 'ignore' });
     console.log('✅ WebdriverIO found (local)');
@@ -36,7 +41,9 @@ function validateEnvironment(): void {
       execSync('wdio --version', { stdio: 'ignore' });
       console.log('✅ WebdriverIO found (global)');
     } catch {
-      throw new Error('WebdriverIO not found. Please install with: npm install --save-dev @wdio/cli');
+      throw new Error(
+        'WebdriverIO not found. Please install with: npm install --save-dev @wdio/cli'
+      );
     }
   }
 
@@ -71,7 +78,7 @@ async function generateTestArtifacts(
   const ollamaClient = createOllamaClient({
     baseUrl: config.ollamaBaseUrl,
     model: config.ollamaModel,
-    timeout: config.testTimeout
+    timeout: config.testTimeout,
   });
 
   // Check Ollama availability upfront
@@ -93,7 +100,7 @@ async function generateTestArtifacts(
 
   console.log('\n🌐 Fetching DOM from:', url);
   const domContent = await fetchDOM(url);
-  
+
   console.log('\n🏗️ Building page object...');
   await buildPageObjects(url, domContent);
   const pageObjectPath = path.resolve('src/page-objects/generatedPage.ts');
@@ -110,12 +117,12 @@ function runTests(featureFilePath: string, timeout: number = TIMEOUTS.DEFAULT_TE
   try {
     console.log('\n🧪 Running generated tests...');
     const absFeaturePath = path.resolve(featureFilePath);
-    
+
     const wdioCommand = [
       'npx wdio run ./wdio.conf.ts',
       `--spec ${absFeaturePath}`,
       `--mochaOpts.timeout ${timeout}`,
-      '--specFileRetries 1'
+      '--specFileRetries 1',
     ].join(' ');
 
     console.log(`🚀 Test command: ${wdioCommand}`);
@@ -134,7 +141,7 @@ function runTests(featureFilePath: string, timeout: number = TIMEOUTS.DEFAULT_TE
 async function validateSelectors(): Promise<void> {
   try {
     console.log('\n🔍 Starting selector validation...');
-    
+
     const pageObjectsDir = path.resolve('src/page-objects');
     if (!existsSync(pageObjectsDir)) {
       console.error('❌ No page objects found. Please generate tests first.');
@@ -143,79 +150,81 @@ async function validateSelectors(): Promise<void> {
 
     // Extract page URLs and selectors from generated page objects
     const pages: Record<string, { selectors: Record<string, string>; url?: string }> = {};
-    
-    const files = require('fs').readdirSync(pageObjectsDir).filter((f: string) => f.startsWith('generated') && f.endsWith('.ts'));
-    
+
+    const files = require('fs')
+      .readdirSync(pageObjectsDir)
+      .filter((f: string) => f.startsWith('generated') && f.endsWith('.ts'));
+
     for (const file of files) {
       const filePath = path.join(pageObjectsDir, file);
       const content = readFileSync(filePath, 'utf-8');
-      
+
       // Extract page name
       const pageNameMatch = file.match(/generated(\w+)Page\.ts/);
       const pageName = pageNameMatch ? pageNameMatch[1].toLowerCase() : file.replace(/\.ts$/, '');
-      
+
       // Extract URL from JSDoc comment or getter
       const urlMatch = content.match(/Page URL:\s*(\S+)/);
       const url = urlMatch ? urlMatch[1] : undefined;
-      
+
       // Extract all getter methods and their selectors
       const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
       const selectors: Record<string, string> = {};
-      
+
       let match;
       while ((match = getterRegex.exec(content)) !== null) {
         const getterName = match[1];
         const selectorText = match[2];
         selectors[getterName] = selectorText;
       }
-      
+
       if (Object.keys(selectors).length > 0) {
         pages[pageName] = { selectors, url };
       }
     }
-    
+
     if (Object.keys(pages).length === 0) {
       console.error('❌ No selectors found in page objects.');
       process.exit(1);
     }
 
     console.log(`\n📋 Found ${Object.keys(pages).length} page object(s) with selectors`);
-    
+
     // Open browser and validate selectors
     const { remote } = await import('webdriverio');
     const browser = await remote({
-      capabilities: { browserName: 'chrome' }
+      capabilities: { browserName: 'chrome' },
     });
 
     try {
       const results = [];
-      
+
       for (const [pageName, pageData] of Object.entries(pages)) {
         if (pageData.url) {
           console.log(`\n🌐 Opening ${pageName} page: ${pageData.url}`);
           await browser.url(pageData.url);
-          
+
           // Wait for page to load
           await browser.waitUntil(
             async () => (await browser.execute(() => document.readyState)) === 'complete',
             { timeout: 10000 }
           );
         }
-        
+
         const result = await validateAllPageSelectors({ [pageName]: pageData });
         results.push(...result);
       }
-      
+
       // Print report
       const report = generateValidationReport(results);
       console.log(report);
-      
+
       // Export results
       const resultsFile = path.resolve('selector-validation-results.json');
       exportValidationResults(results, resultsFile);
-      
+
       // Exit with appropriate code
-      const hasErrors = results.some(r => r.invalidSelectors > 0);
+      const hasErrors = results.some((r) => r.invalidSelectors > 0);
       if (hasErrors) {
         console.error('\n❌ Selector validation failed. Some selectors are broken.');
         process.exit(1);
@@ -248,13 +257,13 @@ function isValidUrl(urlString: string): boolean {
  */
 function parseArgs(args: string[]): Record<string, string | boolean> {
   const parsed: Record<string, string | boolean> = {};
-  
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     if (arg.startsWith('--')) {
       const key = arg.slice(2);
-      
+
       if (key.startsWith('no-')) {
         parsed[key.slice(3)] = false;
       } else if (i + 1 < args.length && !args[i + 1].startsWith('--')) {
@@ -264,7 +273,7 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
       }
     }
   }
-  
+
   return parsed;
 }
 
@@ -372,7 +381,7 @@ async function executeHealingWorkflow(): Promise<void> {
 async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
   try {
     const pageObjectsDir = path.resolve('src/page-objects');
-    
+
     if (!existsSync(pageObjectsDir)) {
       console.error('❌ No page objects found. Please generate tests first.');
       process.exit(1);
@@ -381,7 +390,7 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
     console.log('\n🔍 Checking for duplicate getters in page objects...\n');
 
     const reports = DuplicateGetterDetector.analyzePageObjects(pageObjectsDir);
-    
+
     if (reports.length === 0) {
       console.error('❌ No page objects found.');
       process.exit(1);
@@ -390,7 +399,7 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
     const formattedReport = DuplicateGetterDetector.generateReport(reports);
     console.log(formattedReport);
 
-    const reportsWithDuplicates = reports.filter(r => r.hasDuplicates);
+    const reportsWithDuplicates = reports.filter((r) => r.hasDuplicates);
 
     if (reportsWithDuplicates.length === 0) {
       console.log('✅ All page objects are clean!\n');
@@ -399,7 +408,7 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
 
     if (fix) {
       console.log('🔧 Fixing duplicate getters...\n');
-      
+
       for (const report of reportsWithDuplicates) {
         const result = DuplicateGetterDetector.fixDuplicates(report.filePath, true);
         console.log(`  ${result.message}`);
@@ -407,12 +416,17 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
 
       console.log('\n✅ Duplicate getter fixes completed!\n');
     } else {
-      console.log('\n💡 To fix these duplicates automatically, run: ts-node src/cli.ts --check-duplicates --fix\n');
+      console.log(
+        '\n💡 To fix these duplicates automatically, run: ts-node src/cli.ts --check-duplicates --fix\n'
+      );
     }
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Duplicate getter check error:', error instanceof Error ? error.message : error);
+    console.error(
+      '❌ Duplicate getter check error:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }
@@ -423,7 +437,7 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
 async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void> {
   try {
     const failureReport = TestFailureTracker.getFailureReport();
-    
+
     if (failureReport.failures.length === 0) {
       console.log('\n✅ No failed tests found. All tests passed in the last run!');
       process.exit(0);
@@ -431,50 +445,68 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
 
     console.log('\n🔄 Re-running failed tests...');
     console.log(`📊 Failed tests to re-run: ${failureReport.failures.length}`);
-    
+
     failureReport.failures.forEach((failure, index) => {
       console.log(`  ${index + 1}. ${failure.featureName} > ${failure.scenario}`);
     });
 
     const instructionsPath = 'instructions.json';
-    
+
     if (!existsSync(instructionsPath)) {
       console.error('\n❌ Instructions file not found. Cannot re-run failed tests.');
-      console.error('   Please run test generation first with: ts-node src/cli.ts --instructions instructions.json');
+      console.error(
+        '   Please run test generation first with: ts-node src/cli.ts --instructions instructions.json'
+      );
       process.exit(1);
     }
 
     console.log('\n🔄 Re-generating test artifacts from instructions...');
-    const { featureFilePath } = await generateArtifactsFromInstructions(
-      instructionsPath,
-      config
-    );
+    const { featureFilePath } = await generateArtifactsFromInstructions(instructionsPath, config);
 
     console.log('\n🧪 Re-running failed tests...');
-    
-    const failedFeatures = failureReport.failures.map(f => 
-      `src/features/${f.featureName.toLowerCase().replace(/\s+/g, '_')}.feature`
-    ).filter((f, index, arr) => arr.indexOf(f) === index);
+
+    const failedFeatures = failureReport.failures
+      .map((f) => `src/features/${f.featureName.toLowerCase().replace(/\s+/g, '_')}.feature`)
+      .filter((f, index, arr) => arr.indexOf(f) === index);
 
     const wdioCommand = [
       'npx wdio run ./wdio.conf.ts',
-      failedFeatures.map(f => `--spec ${path.resolve(f)}`).join(' '),
+      failedFeatures.map((f) => `--spec ${path.resolve(f)}`).join(' '),
       `--mochaOpts.timeout ${config.testTimeout || TIMEOUTS.DEFAULT_TEST_TIMEOUT}`,
-      '--specFileRetries 1'
+      '--specFileRetries 1',
     ].join(' ');
 
     console.log(`🚀 Test command: ${wdioCommand}`);
-    
+
     try {
       execSync(wdioCommand, { stdio: 'inherit' });
       console.log('\n✅ Failed tests re-run completed successfully!');
       TestFailureTracker.clearFailures();
     } catch (error) {
-      console.error('\n❌ Re-run test execution failed:', error instanceof Error ? error.message : error);
+      console.error(
+        '\n❌ Re-run test execution failed:',
+        error instanceof Error ? error.message : error
+      );
       throw error;
     }
   } catch (error) {
     console.error('\n❌ Failed test re-run error:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Rerun failed steps with artifact regeneration
+ * Uses .rerun-log.json to track failed steps
+ */
+async function rerunFailedStepsWithHealing(): Promise<void> {
+  try {
+    await rerunFailedStepsService.executeRerun();
+  } catch (error) {
+    console.error(
+      '❌ Failed step rerun error:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }
@@ -484,14 +516,18 @@ async function main() {
   const shouldRunTests = !parsedArgs['no-run'];
   const shouldValidate = parsedArgs['validate'];
   const shouldRerun = parsedArgs['rerun'];
+  const shouldRerunSteps = parsedArgs['rerun-steps'];
   const shouldCheckDuplicates = parsedArgs['check-duplicates'];
   const shouldFixDuplicates = parsedArgs['fix'];
   const shouldRunHealing = parsedArgs['healing'];
-  
+
   const config: TestGenerationConfig = {
     ollamaModel: typeof parsedArgs['model'] === 'string' ? parsedArgs['model'] : undefined,
-    testTimeout: typeof parsedArgs['timeout'] === 'string' ? parseInt(parsedArgs['timeout']) : TIMEOUTS.DEFAULT_TEST_TIMEOUT,
-    screenshotOnFailure: !parsedArgs['no-screenshots']
+    testTimeout:
+      typeof parsedArgs['timeout'] === 'string'
+        ? parseInt(parsedArgs['timeout'])
+        : TIMEOUTS.DEFAULT_TEST_TIMEOUT,
+    screenshotOnFailure: !parsedArgs['no-screenshots'],
   };
 
   try {
@@ -506,6 +542,13 @@ async function main() {
     if (shouldRerun) {
       validateEnvironment();
       await rerunFailedTests(config);
+      process.exit(0);
+    }
+
+    // Handle --rerun-steps flag (standalone, rerun failed steps with healing)
+    if (shouldRerunSteps) {
+      validateEnvironment();
+      await rerunFailedStepsWithHealing();
       process.exit(0);
     }
 
@@ -527,23 +570,23 @@ async function main() {
 
     // Check if using instructions file
     if (parsedArgs['instructions']) {
-      const instructionsPath = typeof parsedArgs['instructions'] === 'string' 
-        ? parsedArgs['instructions'] 
-        : 'instructions.json';
+      const instructionsPath =
+        typeof parsedArgs['instructions'] === 'string'
+          ? parsedArgs['instructions']
+          : 'instructions.json';
 
-      console.log([
-        `🚀 Starting AI-powered test generation from instructions`,
-        `📄 Instructions file: ${instructionsPath}`,
-        `🤖 Model: ${config.ollamaModel || 'llama3'}`,
-        `⏱️ Timeout: ${config.testTimeout}ms`,
-        `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
-        `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`
-      ].join('\n'));
-
-      const { featureFilePath } = await generateArtifactsFromInstructions(
-        instructionsPath,
-        config
+      console.log(
+        [
+          `🚀 Starting AI-powered test generation from instructions`,
+          `📄 Instructions file: ${instructionsPath}`,
+          `🤖 Model: ${config.ollamaModel || 'llama3'}`,
+          `⏱️ Timeout: ${config.testTimeout}ms`,
+          `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
+          `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,
+        ].join('\n')
       );
+
+      const { featureFilePath } = await generateArtifactsFromInstructions(instructionsPath, config);
 
       if (shouldRunTests) {
         runTests(featureFilePath, config.testTimeout);
@@ -552,49 +595,58 @@ async function main() {
       }
     } else {
       // Original URL + instruction mode
-      const [url, ...instructionParts] = process.argv.slice(2).filter(arg => !arg.startsWith('--'));
+      const [url, ...instructionParts] = process.argv
+        .slice(2)
+        .filter((arg) => !arg.startsWith('--'));
 
       if (!url || instructionParts.length === 0) {
-        console.error([
-          '❌ Usage:',
-          '  Mode 1 - URL + Instruction:',
-          '    ts-node src/cli.ts <url> "<test instruction>" [options]',
-          '',
-          '  Mode 2 - Instructions file:',
-          '    ts-node src/cli.ts --instructions [<path>] [options]',
-          '',
-          '  Mode 3 - Validate Selectors:',
-          '    ts-node src/cli.ts --validate',
-          '',
-          '  Mode 4 - Re-run Failed Tests:',
-          '    ts-node src/cli.ts --rerun [options]',
-          '',
-          '  Mode 5 - Check Duplicate Getters:',
-          '    ts-node src/cli.ts --check-duplicates [--fix]',
-          '',
-          '  Mode 6 - Run Healing Workflow:',
-          '    ts-node src/cli.ts --healing',
-          '',
-          'Options:',
-          '  --model <model>      Ollama model to use (default: llama3)',
-          '  --timeout <ms>       Test timeout in milliseconds (default: 60000)',
-          '  --no-run             Generate tests without executing them',
-          '  --validate           Dry-run: Check if all selectors exist in DOM',
-          '  --rerun              Re-run failed tests from last execution',
-          '  --check-duplicates   Check for duplicate getters in page objects',
-          '  --fix                Fix duplicate getters (auto-merge selectors)',
-          '  --healing            Execute comprehensive healing workflow',
-          '',
-          'Examples:',
-          '  ts-node src/cli.ts https://example.com "Test login" --model llama3',
-          '  ts-node src/cli.ts --instructions instructions.json --no-run',
-          '  ts-node src/cli.ts --instructions ./custom-instructions.json',
-          '  ts-node src/cli.ts --validate',
-          '  ts-node src/cli.ts --rerun',
-          '  ts-node src/cli.ts --check-duplicates',
-          '  ts-node src/cli.ts --check-duplicates --fix',
-          '  ts-node src/cli.ts --healing'
-        ].join('\n'));
+        console.error(
+          [
+            '❌ Usage:',
+            '  Mode 1 - URL + Instruction:',
+            '    ts-node src/cli.ts <url> "<test instruction>" [options]',
+            '',
+            '  Mode 2 - Instructions file:',
+            '    ts-node src/cli.ts --instructions [<path>] [options]',
+            '',
+            '  Mode 3 - Validate Selectors:',
+            '    ts-node src/cli.ts --validate',
+            '',
+            '  Mode 4 - Re-run Failed Tests:',
+            '    ts-node src/cli.ts --rerun [options]',
+            '',
+            '  Mode 5 - Rerun Failed Steps with Healing:',
+            '    ts-node src/cli.ts --rerun-steps',
+            '',
+            '  Mode 6 - Check Duplicate Getters:',
+            '    ts-node src/cli.ts --check-duplicates [--fix]',
+            '',
+            '  Mode 7 - Run Healing Workflow:',
+            '    ts-node src/cli.ts --healing',
+            '',
+            'Options:',
+            '  --model <model>      Ollama model to use (default: llama3)',
+            '  --timeout <ms>       Test timeout in milliseconds (default: 60000)',
+            '  --no-run             Generate tests without executing them',
+            '  --validate           Dry-run: Check if all selectors exist in DOM',
+            '  --rerun              Re-run failed tests from last execution',
+            '  --rerun-steps        Rerun failed steps with artifact regeneration',
+            '  --check-duplicates   Check for duplicate getters in page objects',
+            '  --fix                Fix duplicate getters (auto-merge selectors)',
+            '  --healing            Execute comprehensive healing workflow',
+            '',
+            'Examples:',
+            '  ts-node src/cli.ts https://example.com "Test login" --model llama3',
+            '  ts-node src/cli.ts --instructions instructions.json --no-run',
+            '  ts-node src/cli.ts --instructions ./custom-instructions.json',
+            '  ts-node src/cli.ts --validate',
+            '  ts-node src/cli.ts --rerun',
+            '  ts-node src/cli.ts --rerun-steps',
+            '  ts-node src/cli.ts --check-duplicates',
+            '  ts-node src/cli.ts --check-duplicates --fix',
+            '  ts-node src/cli.ts --healing',
+          ].join('\n')
+        );
         process.exit(1);
       }
 
@@ -606,21 +658,19 @@ async function main() {
 
       const instruction = instructionParts.join(' ');
 
-      console.log([
-        `🚀 Starting AI-powered test generation`,
-        `📌 URL: ${url}`,
-        `📝 Instruction: ${instruction}`,
-        `🤖 Model: ${config.ollamaModel || 'llama3'}`,
-        `⏱️ Timeout: ${config.testTimeout}ms`,
-        `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
-        `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`
-      ].join('\n'));
-
-      const { featureFilePath } = await generateTestArtifacts(
-        url,
-        instruction,
-        config
+      console.log(
+        [
+          `🚀 Starting AI-powered test generation`,
+          `📌 URL: ${url}`,
+          `📝 Instruction: ${instruction}`,
+          `🤖 Model: ${config.ollamaModel || 'llama3'}`,
+          `⏱️ Timeout: ${config.testTimeout}ms`,
+          `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
+          `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,
+        ].join('\n')
       );
+
+      const { featureFilePath } = await generateTestArtifacts(url, instruction, config);
 
       if (shouldRunTests) {
         runTests(featureFilePath, config.testTimeout);

@@ -13,7 +13,7 @@ import { load } from 'cheerio';
 /**
  * Builds a complete test scenario based on a URL and user instruction.
  * Fetches the page, analyzes its structure, generates feature files and step definitions.
- * 
+ *
  * @param url - The URL of the web page to test
  * @param instruction - The test instruction describing what scenarios to generate
  * @returns Promise resolving to the generated feature file path
@@ -43,7 +43,7 @@ export async function buildScenario(url: string, instruction: string): Promise<s
 
   console.log('🎯 Generating scenario prompts based on page structure...');
   const ollamaClient = new OllamaClient();
-  
+
   const scenarioTypes = ['happy-path', 'negative', 'validation'] as const;
   const scenarioPrompts = new Map<string, string>();
 
@@ -55,22 +55,24 @@ export async function buildScenario(url: string, instruction: string): Promise<s
 
   console.log('🧠 Generating scenarios with AI...');
   let allScenarios = '';
-  
+
   for (const [type, prompt] of scenarioPrompts) {
     try {
       console.log(`   Generating ${type} scenarios...`);
       const scenarios = await ollamaClient.generateText(prompt, {
         temperature: 0.3,
-        max_tokens: 800
+        max_tokens: 800,
       });
       allScenarios += `\n\n${scenarios}`;
     } catch (error) {
-      console.warn(`   ⚠️ Failed to generate ${type} scenarios: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `   ⚠️ Failed to generate ${type} scenarios: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 
   let featureContentRaw = allScenarios.trim();
-  
+
   if (!featureContentRaw || featureContentRaw.length < 50) {
     console.warn('⚠️ AI generation produced minimal output, using fallback feature');
     featureContentRaw = createEnhancedFallbackFeature(pageAnalysis, instruction);
@@ -100,19 +102,21 @@ export async function buildScenario(url: string, instruction: string): Promise<s
 
   if (validation.warnings.length > 0) {
     console.log('⚠️ Warnings:');
-    validation.warnings.forEach(w => console.log(`   - ${w}`));
+    validation.warnings.forEach((w) => console.log(`   - ${w}`));
   }
 
   if (validation.suggestions.length > 0) {
     console.log('💡 Suggestions:');
-    validation.suggestions.slice(0, 2).forEach(s => console.log(`   - ${s}`));
+    validation.suggestions.slice(0, 2).forEach((s) => console.log(`   - ${s}`));
   }
 
   console.log('\n📋 Generating step definitions...');
   try {
     await buildStepDefinitions(sanitizedFeatureContent, url, featureContentRaw);
   } catch (error) {
-    console.warn(`⚠️ Failed to generate step definitions: ${error instanceof Error ? error.message : error}`);
+    console.warn(
+      `⚠️ Failed to generate step definitions: ${error instanceof Error ? error.message : error}`
+    );
   }
 
   return fullPath;
@@ -133,7 +137,7 @@ function buildFeatureHeader(pageAnalysis: any, instruction: string): string {
 function sanitizeGherkinContent(content: string): string {
   const lines = content.split('\n');
   const sanitizedLines: string[] = [];
-  
+
   for (const line of lines) {
     if (/^\s*(Feature:|Scenario:|Background:|Given |When |Then |And |But |@|#)/.test(line)) {
       sanitizedLines.push(line);
@@ -142,22 +146,26 @@ function sanitizeGherkinContent(content: string): string {
     }
   }
 
-  return sanitizedLines.join('\n').replace(/\n\n\n+/g, '\n\n').trim() + '\n';
+  return (
+    sanitizedLines
+      .join('\n')
+      .replace(/\n\n\n+/g, '\n\n')
+      .trim() + '\n'
+  );
 }
 
 function generateFileName(url: string): string {
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
-    const lastPathPart = pathParts.length > 0 
-      ? pathParts[pathParts.length - 1].replace(/\.[^/.]+$/, '') // Remove extension
-      : 'home';
-    
+    const lastPathPart =
+      pathParts.length > 0
+        ? pathParts[pathParts.length - 1].replace(/\.[^/.]+$/, '') // Remove extension
+        : 'home';
+
     const hostnamePart = urlObj.hostname.replace('www.', '').split('.')[0];
-    const safeName = `${hostnamePart}_${lastPathPart}`
-      .replace(/[^a-zA-Z0-9_]/g, '_')
-      .toLowerCase();
-    
+    const safeName = `${hostnamePart}_${lastPathPart}`.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+
     return `${safeName}.feature`;
   } catch {
     return `generated_${Date.now()}.feature`;

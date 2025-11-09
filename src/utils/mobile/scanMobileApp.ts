@@ -7,41 +7,43 @@ import { $$ } from '@wdio/globals';
  * Works for Android and iOS.
  */
 export async function scanMobileApp(platform: 'android' | 'ios') {
-    const elements = await $$('*'); // All elements in current view
-    const metadata: any[] = [];
+  const elements = await $$('*'); // All elements in current view
+  const metadata: any[] = [];
 
-    for (const el of elements) {
-        try {
-            const id = platform === 'android'
-                ? await el.getAttribute('resource-id')
-                : await el.getAttribute('name');
+  for (const el of elements) {
+    try {
+      const id =
+        platform === 'android'
+          ? await el.getAttribute('resource-id')
+          : await el.getAttribute('name');
 
-            const label = platform === 'android'
-                ? (await el.getAttribute('content-desc')) || (await el.getText())
-                : (await el.getAttribute('label')) || (await el.getText());
+      const label =
+        platform === 'android'
+          ? (await el.getAttribute('content-desc')) || (await el.getText())
+          : (await el.getAttribute('label')) || (await el.getText());
 
-            const className = await el.getAttribute('class');
-            const bounds = await el.getAttribute('bounds'); // Android only
+      const className = await el.getAttribute('class');
+      const bounds = await el.getAttribute('bounds'); // Android only
 
-            metadata.push({
-                id,
-                label,
-                className,
-                bounds: bounds || null
-            });
-        } catch (err) {
-            // ignore errors for elements we can't read
-        }
+      metadata.push({
+        id,
+        label,
+        className,
+        bounds: bounds || null,
+      });
+    } catch (err) {
+      // ignore errors for elements we can't read
     }
+  }
 
-    const tmpDir = path.resolve('tmp');
-    if (!fs.existsSync(tmpDir)) {
-        fs.mkdirSync(tmpDir);
-    }
+  const tmpDir = path.resolve('tmp');
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir);
+  }
 
-    const filePath = path.join(tmpDir, `${platform}-elements.json`);
-    fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
+  const filePath = path.join(tmpDir, `${platform}-elements.json`);
+  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
 
-    console.log(`✅ Scanned ${metadata.length} elements from ${platform} app.`);
-    console.log(`📄 Saved to: ${filePath}`);
+  console.log(`✅ Scanned ${metadata.length} elements from ${platform} app.`);
+  console.log(`📄 Saved to: ${filePath}`);
 }

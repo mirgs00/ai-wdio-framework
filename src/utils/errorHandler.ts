@@ -29,7 +29,11 @@ export function handleError(error: unknown, context: string = ''): AppError {
   return appError;
 }
 
-export function throwError(message: string, code: string = 'INTERNAL_ERROR', statusCode: number = 500): never {
+export function throwError(
+  message: string,
+  code: string = 'INTERNAL_ERROR',
+  statusCode: number = 500
+): never {
   const error = new AppError(message, code, statusCode);
   logger.error(message);
   throw error;

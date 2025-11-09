@@ -33,7 +33,7 @@ class AutoRegenerateService {
     try {
       // Get current page HTML
       const domHtml = await this.getCurrentPageHTML();
-      
+
       if (!domHtml) {
         console.warn('⚠️ Could not capture page HTML');
         return false;
@@ -76,7 +76,7 @@ class AutoRegenerateService {
   private async getCurrentPageHTML(): Promise<string> {
     try {
       console.log(`⏳ Waiting for dynamic content to render...`);
-      
+
       await browser.waitUntil(
         async () => {
           const readyState = await browser.execute(() => document.readyState);
@@ -103,7 +103,7 @@ class AutoRegenerateService {
           buttons: document.querySelectorAll('button, [role="button"]').length,
           divs: document.querySelectorAll('div').length,
           spans: document.querySelectorAll('span').length,
-          headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6').length
+          headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6').length,
         };
       });
 
@@ -118,7 +118,9 @@ class AutoRegenerateService {
 
       return html;
     } catch (error) {
-      console.warn(`Failed to capture page HTML: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `Failed to capture page HTML: ${error instanceof Error ? error.message : error}`
+      );
       return '';
     }
   }
@@ -135,7 +137,9 @@ class AutoRegenerateService {
       // Detect the actual page type from content
       const detectedPageType = this.detectPageType(htmlContent);
       const finalPageName = pageName || detectedPageType;
-      const pageObjectPath = path.resolve(`src/page-objects/generated${this.capitalize(finalPageName)}Page.ts`);
+      const pageObjectPath = path.resolve(
+        `src/page-objects/generated${this.capitalize(finalPageName)}Page.ts`
+      );
 
       console.log(`\n📊 DOM Analysis Complete:`);
       console.log(`   Page Type: ${finalPageName}`);
@@ -146,7 +150,7 @@ class AutoRegenerateService {
       console.log(`   Error Elements: ${pageAnalysis.errorElements.length}`);
       console.log(`   Success Elements: ${pageAnalysis.successElements.length}`);
       console.log(`   Text Elements: ${pageAnalysis.textElements?.length || 0}`);
-      
+
       if (pageAnalysis.headings.length > 0) {
         console.log(`\n   Headings found:`);
         pageAnalysis.headings.forEach((h: any) => {
@@ -162,18 +166,16 @@ class AutoRegenerateService {
       }
 
       // Generate page object code with all detected elements
-      const pageObjectCode = this.generatePageObjectCode(
-        finalPageName,
-        pageAnalysis,
-        htmlContent
-      );
+      const pageObjectCode = this.generatePageObjectCode(finalPageName, pageAnalysis, htmlContent);
 
       writeFileSync(pageObjectPath, pageObjectCode, 'utf-8');
       console.log(`\n📝 Updated: ${pageObjectPath}`);
 
       return true;
     } catch (error) {
-      console.warn(`Could not update page object: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `Could not update page object: ${error instanceof Error ? error.message : error}`
+      );
       return false;
     }
   }
@@ -183,17 +185,21 @@ class AutoRegenerateService {
    */
   private detectPageType(htmlContent: string): string {
     const content = htmlContent.toLowerCase();
-    
+
     // Detect dashboard/success page
-    if (content.includes('logged in') || content.includes('logged-in') || content.includes('dashboard')) {
+    if (
+      content.includes('logged in') ||
+      content.includes('logged-in') ||
+      content.includes('dashboard')
+    ) {
       return 'dashboard';
     }
-    
+
     // Detect error page
     if (content.includes('error') && !content.includes('password')) {
       return 'error';
     }
-    
+
     // Default to login
     return 'login';
   }
@@ -201,11 +207,7 @@ class AutoRegenerateService {
   /**
    * Generate complete page object code from DOM analysis
    */
-  private generatePageObjectCode(
-    pageName: string,
-    analysis: any,
-    htmlContent: string
-  ): string {
+  private generatePageObjectCode(pageName: string, analysis: any, htmlContent: string): string {
     const className = this.capitalize(pageName) + 'Page';
     const instanceName = pageName.toLowerCase() + 'Page';
 
@@ -274,7 +276,11 @@ class AutoRegenerateService {
     // Add generic text elements
     if (analysis.textElements && analysis.textElements.length > 0) {
       analysis.textElements.forEach((textEl: any, idx: number) => {
-        const name = textEl.text.substring(0, 30).replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, '_');
+        const name = textEl.text
+          .substring(0, 30)
+          .replace(/[^a-zA-Z0-9\s]/g, ' ')
+          .trim()
+          .replace(/\s+/g, '_');
         if (name.length > 0) {
           elementGetters.push(`
   /**
@@ -287,7 +293,8 @@ class AutoRegenerateService {
       });
     }
 
-    const pageUrl = analysis.forms?.[0]?.action || 'https://practicetestautomation.com/practice-test-login/';
+    const pageUrl =
+      analysis.forms?.[0]?.action || 'https://practicetestautomation.com/practice-test-login/';
 
     return `// Auto-generated Page Object for ${pageName} page
 // Regenerated: ${new Date().toISOString()}

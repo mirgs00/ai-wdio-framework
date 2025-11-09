@@ -1,10 +1,16 @@
-import { Given, When, Then } from "@wdio/cucumber-framework";
+import { Given, When, Then } from '@wdio/cucumber-framework';
 import { expect, browser, $ } from '@wdio/globals';
 import dotenv from 'dotenv';
 import generatedPage from '../page-objects/generatedPage';
 import { setupHealingHooks } from '../utils/healing/healingHooks';
 import pageContextManager from '../page-objects/pageContextManager';
-import { safeSetValue, safeClick, safeIsDisplayed, logSelectorUsage, getFallbackSelectors } from '../utils/healing/selectorHelper';
+import {
+  safeSetValue,
+  safeClick,
+  safeIsDisplayed,
+  logSelectorUsage,
+  getFallbackSelectors,
+} from '../utils/healing/selectorHelper';
 import { logger } from '../utils/logger';
 
 dotenv.config();
@@ -39,18 +45,18 @@ When(/^the user enters username "([^"]*)"$/, async function (username) {
     const page = pageContextManager.getCurrentPage();
     const element = page.username_input;
     const selector = element.selector;
-    
+
     logSelectorUsage('enters username', selector, 'setValue');
-    
+
     // Check selector exists before attempting action
     const exists = await element.isExisting({ timeout: 3000 }).catch(() => false);
     if (!exists) {
       logger.warn(`Username input selector not found, attempting with fallback`, {
         section: 'STEP_EXECUTION',
-        details: { originalSelector: selector }
+        details: { originalSelector: selector },
       });
     }
-    
+
     await element.setValue(username);
   } catch (error) {
     logger.error('Failed to enter username', error as Error);
@@ -66,18 +72,18 @@ When(/^the user enters password "([^"]*)"$/, async function (password) {
     const page = pageContextManager.getCurrentPage();
     const element = page.password_input;
     const selector = element.selector;
-    
+
     logSelectorUsage('enters password', selector, 'setValue');
-    
+
     // Check selector exists before attempting action
     const exists = await element.isExisting({ timeout: 3000 }).catch(() => false);
     if (!exists) {
       logger.warn(`Password input selector not found, attempting with fallback`, {
         section: 'STEP_EXECUTION',
-        details: { originalSelector: selector }
+        details: { originalSelector: selector },
       });
     }
-    
+
     await element.setValue(password);
   } catch (error) {
     logger.error('Failed to enter password', error as Error);
@@ -93,18 +99,21 @@ When(/^the user clicks login button$/, async function () {
     const page = pageContextManager.getCurrentPage();
     const element = page.submit_button;
     const selector = element.selector;
-    
+
     logSelectorUsage('clicks login button', selector, 'click');
-    
+
     // Check selector exists before attempting action
     const exists = await element.isExisting({ timeout: 3000 }).catch(() => false);
     if (!exists) {
       logger.warn(`Submit button selector not found, attempting with fallback`, {
         section: 'STEP_EXECUTION',
-        details: { originalSelector: selector, fallbackSelectors: getFallbackSelectors('login_button') }
+        details: {
+          originalSelector: selector,
+          fallbackSelectors: getFallbackSelectors('login_button'),
+        },
       });
     }
-    
+
     await element.click();
     await browser.pause(500); // Wait for action
   } catch (error) {
@@ -121,18 +130,22 @@ Then(/^the user sees page header containing text "([^"]*)"$/, async function (ex
     const dashboardPage = pageContextManager.getPage('dashboard');
     const element = dashboardPage.success_text || dashboardPage.message_text;
     const selector = element.selector;
-    
+
     logSelectorUsage('sees page header containing text', selector, 'check');
-    
+
     // Check selector exists with detailed logging
     const isDisplayed = await safeIsDisplayed(selector, 'page header containing text');
     if (!isDisplayed) {
       logger.warn(`Success message selector not displayed, checking existence`, {
         section: 'STEP_EXECUTION',
-        details: { selector, expectedText, fallbackSelectors: getFallbackSelectors('success_message') }
+        details: {
+          selector,
+          expectedText,
+          fallbackSelectors: getFallbackSelectors('success_message'),
+        },
       });
     }
-    
+
     await expect(element).toBeDisplayed({ timeout: 5000 });
     const actualMessage = await element.getText();
     expect(actualMessage).toContain(expectedText);
@@ -150,18 +163,18 @@ Then(/^the user sees error message about invalid credentials$/, async function (
     const page = pageContextManager.getCurrentPage();
     const element = page.error_text || page.message_text;
     const selector = element.selector;
-    
+
     logSelectorUsage('sees error message', selector, 'check');
-    
+
     // Check selector exists with detailed logging
     const isDisplayed = await safeIsDisplayed(selector, 'error message about invalid credentials');
     if (!isDisplayed) {
       logger.warn(`Error message selector not displayed`, {
         section: 'STEP_EXECUTION',
-        details: { selector, fallbackSelectors: getFallbackSelectors('error_message') }
+        details: { selector, fallbackSelectors: getFallbackSelectors('error_message') },
       });
     }
-    
+
     await expect(element).toBeDisplayed({ timeout: 5000 });
     const actualMessage = await element.getText();
     expect(actualMessage.length).toBeGreaterThan(0);
@@ -179,17 +192,17 @@ When(/^the user clicks submit button$/, async function () {
     const page = pageContextManager.getCurrentPage();
     const element = page.submit_button;
     const selector = element.selector;
-    
+
     logSelectorUsage('clicks submit button', selector, 'click');
-    
+
     const exists = await element.isExisting({ timeout: 3000 }).catch(() => false);
     if (!exists) {
       logger.warn(`Submit button selector not found`, {
         section: 'STEP_EXECUTION',
-        details: { originalSelector: selector }
+        details: { originalSelector: selector },
       });
     }
-    
+
     await element.click();
     await browser.pause(500);
   } catch (error) {
@@ -206,17 +219,17 @@ Then(/^the user sees error message about username format$/, async function () {
     const page = pageContextManager.getCurrentPage();
     const element = page.error_text || page.message_text;
     const selector = element.selector;
-    
+
     logSelectorUsage('sees error message about username format', selector, 'check');
-    
+
     const isDisplayed = await safeIsDisplayed(selector, 'error message about username format');
     if (!isDisplayed) {
       logger.warn(`Error message selector not displayed`, {
         section: 'STEP_EXECUTION',
-        details: { selector }
+        details: { selector },
       });
     }
-    
+
     await expect(element).toBeDisplayed({ timeout: 5000 });
     const actualMessage = await element.getText();
     expect(actualMessage.length).toBeGreaterThan(0);
@@ -234,17 +247,17 @@ When(/^the user leaves password field empty$/, async function () {
     const page = pageContextManager.getCurrentPage();
     const element = page.password_input;
     const selector = element.selector;
-    
+
     logSelectorUsage('leaves password field empty', selector, 'check');
-    
+
     const exists = await element.isExisting({ timeout: 3000 }).catch(() => false);
     if (!exists) {
       logger.warn(`Password input selector not found`, {
         section: 'STEP_EXECUTION',
-        details: { selector }
+        details: { selector },
       });
     }
-    
+
     await element.clearValue();
     await browser.pause(300);
   } catch (error) {
@@ -261,17 +274,17 @@ Then(/^the user sees error message that password is required$/, async function (
     const page = pageContextManager.getCurrentPage();
     const element = page.error_text || page.message_text;
     const selector = element.selector;
-    
+
     logSelectorUsage('sees error message that password is required', selector, 'check');
-    
+
     const isDisplayed = await safeIsDisplayed(selector, 'error message that password is required');
     if (!isDisplayed) {
       logger.warn(`Error message selector not displayed`, {
         section: 'STEP_EXECUTION',
-        details: { selector }
+        details: { selector },
       });
     }
-    
+
     await expect(element).toBeDisplayed({ timeout: 5000 });
     const actualMessage = await element.getText();
     expect(actualMessage.length).toBeGreaterThan(0);
@@ -280,4 +293,3 @@ Then(/^the user sees error message that password is required$/, async function (
     throw new Error(`Failed to verify message: ${error}`);
   }
 });
-

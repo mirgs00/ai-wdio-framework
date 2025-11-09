@@ -48,23 +48,17 @@ export class HealingWorkflow {
     this.steps = [];
 
     try {
-      await this.step('Pre-Execution Validation', () =>
-        this.preExecutionValidation()
-      );
+      await this.step('Pre-Execution Validation', () => this.preExecutionValidation());
 
-      await this.step('Failure Detection & Recovery', () =>
-        this.failureDetectionAndRecovery()
-      );
+      await this.step('Failure Detection & Recovery', () => this.failureDetectionAndRecovery());
 
-      await this.step('Generate Healing Report', () =>
-        this.generateReport()
-      );
+      await this.step('Generate Healing Report', () => this.generateReport());
 
       return this.buildWorkflowReport('success');
     } catch (error) {
       logger.warn('Healing workflow encountered an error', {
         section: 'HEALING_WORKFLOW',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
 
       return this.buildWorkflowReport('failed');
@@ -77,7 +71,7 @@ export class HealingWorkflow {
   private async preExecutionValidation(): Promise<void> {
     try {
       logger.info('Starting pre-execution selector validation...', {
-        section: 'HEALING_WORKFLOW'
+        section: 'HEALING_WORKFLOW',
       });
 
       // Find all page objects
@@ -110,7 +104,7 @@ export class HealingWorkflow {
             logger.warn(`Invalid selector found: ${selector}`, {
               section: 'HEALING_WORKFLOW',
               getter: getterName,
-              issues: validation.issues
+              issues: validation.issues,
             });
           }
         }
@@ -120,15 +114,18 @@ export class HealingWorkflow {
         totalSelectors,
         validSelectors,
         brokenSelectors,
-        successRate: totalSelectors > 0 ? (validSelectors / totalSelectors) * 100 : 0
+        successRate: totalSelectors > 0 ? (validSelectors / totalSelectors) * 100 : 0,
       });
 
-      logger.info(`Pre-execution validation completed: ${validSelectors}/${totalSelectors} selectors valid`, {
-        section: 'HEALING_WORKFLOW'
-      });
+      logger.info(
+        `Pre-execution validation completed: ${validSelectors}/${totalSelectors} selectors valid`,
+        {
+          section: 'HEALING_WORKFLOW',
+        }
+      );
     } catch (error) {
       this.recordStep('Pre-Execution Validation', 'failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -146,17 +143,17 @@ export class HealingWorkflow {
           totalFailures: 0,
           healed: 0,
           stillBroken: 0,
-          successRate: 100
+          successRate: 100,
         });
 
         logger.info('No failures detected from last test run', {
-          section: 'HEALING_WORKFLOW'
+          section: 'HEALING_WORKFLOW',
         });
         return;
       }
 
       logger.info(`Found ${failureReport.failures.length} failed tests to heal`, {
-        section: 'HEALING_WORKFLOW'
+        section: 'HEALING_WORKFLOW',
       });
 
       let healedCount = 0;
@@ -165,67 +162,65 @@ export class HealingWorkflow {
       for (const failure of failureReport.failures) {
         try {
           const pageName = this.extractPageNameFromFailure(failure.featureName);
-          const healing = await this.healingService.healBrokenSelector(
-            pageName,
-            failure.scenario
-          );
+          const healing = await this.healingService.healBrokenSelector(pageName, failure.scenario);
 
           if (healing && healing.healed) {
             healedCount++;
             healingResults.push({
               failure: `${failure.featureName}:${failure.scenario}`,
-              healed: true
+              healed: true,
             });
 
             logger.info(`Successfully healed: ${failure.scenario}`, {
               section: 'HEALING_WORKFLOW',
               pageName,
               oldSelector: healing.originalSelector,
-              newSelector: healing.healedSelector
+              newSelector: healing.healedSelector,
             });
           } else {
             healingResults.push({
               failure: `${failure.featureName}:${failure.scenario}`,
-              healed: false
+              healed: false,
             });
 
             logger.warn(`Could not heal: ${failure.scenario}`, {
               section: 'HEALING_WORKFLOW',
-              pageName
+              pageName,
             });
           }
         } catch (error) {
           healingResults.push({
             failure: `${failure.featureName}:${failure.scenario}`,
-            healed: false
+            healed: false,
           });
 
           logger.warn(`Error healing failure`, {
             section: 'HEALING_WORKFLOW',
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
 
       const successRate =
-        failureReport.failures.length > 0
-          ? (healedCount / failureReport.failures.length) * 100
-          : 0;
+        failureReport.failures.length > 0 ? (healedCount / failureReport.failures.length) * 100 : 0;
 
       this.recordStep('Failure Detection & Recovery', 'success', {
         totalFailures: failureReport.failures.length,
         healed: healedCount,
         stillBroken: failureReport.failures.length - healedCount,
         successRate,
-        details: healingResults
+        details: healingResults,
       });
 
-      logger.info(`Healing completed: ${healedCount}/${failureReport.failures.length} failures recovered`, {
-        section: 'HEALING_WORKFLOW'
-      });
+      logger.info(
+        `Healing completed: ${healedCount}/${failureReport.failures.length} failures recovered`,
+        {
+          section: 'HEALING_WORKFLOW',
+        }
+      );
     } catch (error) {
       this.recordStep('Failure Detection & Recovery', 'failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -242,16 +237,16 @@ export class HealingWorkflow {
         totalAttempts: report.totalAttempts,
         successfulHeals: report.successfulHeals,
         failedHeals: report.failedHeals,
-        successRate: report.successRate
+        successRate: report.successRate,
       });
 
       logger.info('Healing report generated', {
         section: 'HEALING_WORKFLOW',
-        ...report
+        ...report,
       });
     } catch (error) {
       this.recordStep('Generate Healing Report', 'failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -267,7 +262,8 @@ export class HealingWorkflow {
       return [];
     }
 
-    return fs.readdirSync(pageObjectsDir)
+    return fs
+      .readdirSync(pageObjectsDir)
       .filter((f: string) => f.startsWith('generated') && f.endsWith('.ts'))
       .map((f: string) => path.join(pageObjectsDir, f));
   }
@@ -297,7 +293,7 @@ export class HealingWorkflow {
 
     return {
       valid: issues.length === 0,
-      issues
+      issues,
     };
   }
 
@@ -312,17 +308,14 @@ export class HealingWorkflow {
     this.steps.push({
       name,
       status,
-      details
+      details,
     });
   }
 
   /**
    * Helper: Execute a step with status tracking
    */
-  private async step(
-    name: string,
-    fn: () => Promise<void>
-  ): Promise<void> {
+  private async step(name: string, fn: () => Promise<void>): Promise<void> {
     this.recordStep(name, 'in_progress');
     await fn();
   }
@@ -345,32 +338,26 @@ export class HealingWorkflow {
     const endTime = Date.now();
     const duration = endTime - this.startTime;
 
-    const preValidationStep = this.steps.find(s => s.name === 'Pre-Execution Validation');
-    const recoveryStep = this.steps.find(s => s.name === 'Failure Detection & Recovery');
+    const preValidationStep = this.steps.find((s) => s.name === 'Pre-Execution Validation');
+    const recoveryStep = this.steps.find((s) => s.name === 'Failure Detection & Recovery');
 
     const preExecution = preValidationStep?.details || {
       totalSelectors: 0,
       validSelectors: 0,
       brokenSelectors: 0,
-      successRate: 0
+      successRate: 0,
     };
 
     const recovery = recoveryStep?.details || {
       totalFailures: 0,
       healed: 0,
       stillBroken: 0,
-      successRate: 0
+      successRate: 0,
     };
 
-    const overallSuccessRate =
-      (preExecution.successRate + recovery.successRate) / 2;
+    const overallSuccessRate = (preExecution.successRate + recovery.successRate) / 2;
 
-    const summary = this.generateSummary(
-      finalStatus,
-      preExecution,
-      recovery,
-      overallSuccessRate
-    );
+    const summary = this.generateSummary(finalStatus, preExecution, recovery, overallSuccessRate);
 
     return {
       startTime: this.startTime,
@@ -380,7 +367,7 @@ export class HealingWorkflow {
       preExecutionValidation: preExecution,
       failureRecovery: recovery,
       overallSuccessRate,
-      summary
+      summary,
     };
   }
 
@@ -410,7 +397,7 @@ export class HealingWorkflow {
       `  • Total Failures Detected: ${recovery.totalFailures}`,
       `  • Successfully Healed: ${recovery.healed}`,
       `  • Still Broken: ${recovery.stillBroken}`,
-      `  • Healing Success Rate: ${recovery.successRate.toFixed(1)}%`
+      `  • Healing Success Rate: ${recovery.successRate.toFixed(1)}%`,
     ];
 
     return lines.join('\n');

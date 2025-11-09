@@ -25,10 +25,10 @@ export class OllamaService {
       try {
         console.log('🛑 Stopping Ollama service...');
         this.ollamaProcess.kill('SIGTERM');
-        
+
         // Give it a moment to shut down gracefully
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
         if (!this.ollamaProcess.killed) {
           this.ollamaProcess.kill('SIGKILL');
         }
@@ -45,9 +45,9 @@ export class OllamaService {
       const timeoutId = setTimeout(() => controller.abort(), this.HEALTH_CHECK_TIMEOUT);
 
       const response = await fetch(this.HEALTH_CHECK_ENDPOINT, {
-        signal: controller.signal as any
+        signal: controller.signal as any,
       });
-      
+
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
@@ -57,7 +57,7 @@ export class OllamaService {
 
   private getOllamaCommand(): string {
     const platform = process.platform;
-    
+
     if (platform === 'win32') {
       // Windows: try to find ollama.exe
       try {
@@ -83,18 +83,18 @@ export class OllamaService {
         throw new Error('Ollama not found. Please install Ollama from https://ollama.ai');
       }
     }
-    
+
     throw new Error(`Unsupported platform: ${platform}`);
   }
 
   private async startOllama(): Promise<boolean> {
     try {
       const command = this.getOllamaCommand();
-      
+
       console.log(`\n📦 Starting Ollama service...`);
       console.log(`   Command: ${command} serve`);
       console.log(`   URL: ${this.OLLAMA_URL}`);
-      
+
       this.ollamaProcess = spawn(command, ['serve'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: false,
@@ -137,7 +137,7 @@ export class OllamaService {
     while (attempts < this.MAX_RETRIES) {
       try {
         const isHealthy = await this.isOllamaHealthy();
-        
+
         if (isHealthy) {
           console.log(`✅ Ollama service is ready after ${(attempts + 1) * this.RETRY_INTERVAL}ms`);
           return true;
@@ -147,13 +147,15 @@ export class OllamaService {
       }
 
       attempts++;
-      
+
       if (attempts < this.MAX_RETRIES) {
-        await new Promise(resolve => setTimeout(resolve, this.RETRY_INTERVAL));
+        await new Promise((resolve) => setTimeout(resolve, this.RETRY_INTERVAL));
       }
     }
 
-    console.error(`❌ Ollama service did not become ready after ${this.MAX_RETRIES * this.RETRY_INTERVAL}ms`);
+    console.error(
+      `❌ Ollama service did not become ready after ${this.MAX_RETRIES * this.RETRY_INTERVAL}ms`
+    );
     return false;
   }
 

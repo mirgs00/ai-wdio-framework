@@ -24,7 +24,7 @@ export class DuplicateGetterDetector {
   static analyzePageObject(filePath: string): DuplicateDetectionReport {
     const content = readFileSync(filePath, 'utf-8');
     const lines = content.split('\n');
-    
+
     const getters = this.extractGetters(content, lines);
     const duplicates = this.findDuplicates(getters);
 
@@ -37,7 +37,7 @@ export class DuplicateGetterDetector {
       hasDuplicates: duplicates.length > 0,
       duplicates,
       totalGetters: getters.length,
-      uniqueGetters: new Set(getters.map(g => g.name)).size
+      uniqueGetters: new Set(getters.map((g) => g.name)).size,
     };
   }
 
@@ -46,11 +46,12 @@ export class DuplicateGetterDetector {
    */
   static analyzePageObjects(pageObjectsDir: string): DuplicateDetectionReport[] {
     const fs = require('fs');
-    const files = fs.readdirSync(pageObjectsDir)
+    const files = fs
+      .readdirSync(pageObjectsDir)
       .filter((f: string) => f.startsWith('generated') && f.endsWith('Page.ts'));
 
     const reports: DuplicateDetectionReport[] = [];
-    
+
     for (const file of files) {
       const filePath = path.join(pageObjectsDir, file);
       try {
@@ -59,7 +60,7 @@ export class DuplicateGetterDetector {
       } catch (error) {
         logger.warn(`Failed to analyze page object: ${file}`, {
           section: 'DUPLICATE_DETECTOR',
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -73,10 +74,10 @@ export class DuplicateGetterDetector {
   static generateReport(reports: DuplicateDetectionReport[]): string {
     const lines: string[] = [
       '\n📋 Duplicate Getter Detection Report',
-      '═════════════════════════════════════\n'
+      '═════════════════════════════════════\n',
     ];
 
-    const reportsWithDuplicates = reports.filter(r => r.hasDuplicates);
+    const reportsWithDuplicates = reports.filter((r) => r.hasDuplicates);
 
     if (reportsWithDuplicates.length === 0) {
       lines.push('✅ No duplicate getters found!\n');
@@ -105,16 +106,22 @@ export class DuplicateGetterDetector {
   /**
    * Fixes duplicate getters by merging them into a single multi-selector getter
    */
-  static fixDuplicates(filePath: string, autoMerge: boolean = false): { success: boolean; message: string } {
+  static fixDuplicates(
+    filePath: string,
+    autoMerge: boolean = false
+  ): { success: boolean; message: string } {
     try {
       const report = this.analyzePageObject(filePath);
-      
+
       if (!report.hasDuplicates) {
         return { success: true, message: `No duplicates found in ${report.pageName}` };
       }
 
       if (!autoMerge) {
-        return { success: false, message: `Duplicates found in ${report.pageName}. Use autoMerge=true to fix automatically.` };
+        return {
+          success: false,
+          message: `Duplicates found in ${report.pageName}. Use autoMerge=true to fix automatically.`,
+        };
       }
 
       let content = readFileSync(filePath, 'utf-8');
@@ -122,14 +129,13 @@ export class DuplicateGetterDetector {
 
       for (const duplicate of report.duplicates) {
         const getterName = duplicate.getterName;
-        const selectors = duplicate.locations.map(loc => loc.selector).filter((s, i, arr) => arr.indexOf(s) === i);
+        const selectors = duplicate.locations
+          .map((loc) => loc.selector)
+          .filter((s, i, arr) => arr.indexOf(s) === i);
 
         const mergedSelector = selectors.join(', ');
 
-        const getterRegex = new RegExp(
-          `get\\s+${getterName}\\s*\\(\\s*\\)\\s*{[^}]+}`,
-          'g'
-        );
+        const getterRegex = new RegExp(`get\\s+${getterName}\\s*\\(\\s*\\)\\s*{[^}]+}`, 'g');
 
         const replacement = `get ${getterName}() {\n    return $('${mergedSelector}');\n  }`;
 
@@ -140,10 +146,13 @@ export class DuplicateGetterDetector {
 
       logger.info(`Fixed duplicate getters in ${report.pageName}`, {
         section: 'DUPLICATE_DETECTOR',
-        duplicatesFixed: report.duplicates.length
+        duplicatesFixed: report.duplicates.length,
       });
 
-      return { success: true, message: `Fixed ${report.duplicates.length} duplicate getter(s) in ${report.pageName}` };
+      return {
+        success: true,
+        message: `Fixed ${report.duplicates.length} duplicate getter(s) in ${report.pageName}`,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { success: false, message: `Error fixing duplicates: ${message}` };
@@ -157,7 +166,7 @@ export class DuplicateGetterDetector {
     const getters: Array<{ name: string; selector: string; line: number }> = [];
 
     const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
-    
+
     let match;
     while ((match = getterRegex.exec(content)) !== null) {
       const getterName = match[1];
@@ -170,7 +179,9 @@ export class DuplicateGetterDetector {
     return getters;
   }
 
-  private static findDuplicates(getters: Array<{ name: string; selector: string; line: number }>): DuplicateGetterInfo[] {
+  private static findDuplicates(
+    getters: Array<{ name: string; selector: string; line: number }>
+  ): DuplicateGetterInfo[] {
     const getterMap = new Map<string, Array<{ line: number; selector: string }>>();
 
     for (const getter of getters) {
@@ -187,7 +198,7 @@ export class DuplicateGetterDetector {
         duplicates.push({
           getterName,
           count: locations.length,
-          locations
+          locations,
         });
       }
     }

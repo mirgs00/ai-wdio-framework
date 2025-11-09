@@ -53,18 +53,15 @@ export class SmartLocator {
   /**
    * Find element with smart strategies and fallbacks
    */
-  async findElement(
-    description: ElementDescription | string,
-    context: string = 'main'
-  ) {
+  async findElement(description: ElementDescription | string, context: string = 'main') {
     try {
       const cacheKey = this.generateCacheKey(description);
-      
+
       // Try cached strategies first
       if (this.cache[cacheKey]) {
         const cached = this.cache[cacheKey];
         const strategies = cached.strategies.sort((a, b) => b.priority - a.priority);
-        
+
         for (const strategy of strategies) {
           try {
             const element = await this.tryLocatorStrategy(strategy);
@@ -80,7 +77,7 @@ export class SmartLocator {
 
       // Generate new strategies if cache miss
       const strategies = await this.generateLocatorStrategies(description, context);
-      
+
       // Try each strategy in order
       for (const strategy of strategies) {
         try {
@@ -101,7 +98,9 @@ export class SmartLocator {
         }
       }
 
-      throw new Error(`Could not find element matching description: ${JSON.stringify(description)}`);
+      throw new Error(
+        `Could not find element matching description: ${JSON.stringify(description)}`
+      );
     } catch (error) {
       logger.error(`SmartLocator findElement failed: ${error}`);
       throw error;
@@ -253,8 +252,11 @@ Best selector:`;
       });
 
       const selector = response.trim().split('\n')[0];
-      
-      if (selector && (selector.startsWith('/') || selector.startsWith('[') || selector.startsWith('.'))) {
+
+      if (
+        selector &&
+        (selector.startsWith('/') || selector.startsWith('[') || selector.startsWith('.'))
+      ) {
         return {
           type: 'composite',
           selector,
@@ -274,7 +276,7 @@ Best selector:`;
   private async tryLocatorStrategy(strategy: LocatorStrategy) {
     try {
       let element;
-      
+
       if (strategy.selector.startsWith('//') || strategy.selector.includes('xpath')) {
         element = await browser.$(`xpath=${strategy.selector}`);
       } else {

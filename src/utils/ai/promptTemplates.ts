@@ -15,13 +15,20 @@ class HappyPathTemplate implements PromptTemplate {
   description = 'Successful completion scenarios with valid data';
 
   generatePrompt(analysis: PageAnalysis, userInstruction: string): string {
-    const formInfo = analysis.forms.length > 0 
-      ? `\nForm fields: ${analysis.forms[0].fields.map(f => f.label || f.name).join(', ')}`
-      : '';
-    
-    const buttons = analysis.buttons.map(b => b.text.toLowerCase()).filter(Boolean).slice(0, 3).join(', ');
-    const buttonExamples = buttons ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'` : 'For button clicks use format: "And I click the "buttonname" button"';
-    
+    const formInfo =
+      analysis.forms.length > 0
+        ? `\nForm fields: ${analysis.forms[0].fields.map((f) => f.label || f.name).join(', ')}`
+        : '';
+
+    const buttons = analysis.buttons
+      .map((b) => b.text.toLowerCase())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+    const buttonExamples = buttons
+      ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'`
+      : 'For button clicks use format: "And I click the "buttonname" button"';
+
     return `Generate a happy path Cucumber scenario for: "${userInstruction}"
 
 Application: ${analysis.mainFunctionality}
@@ -59,16 +66,22 @@ class NegativeTestTemplate implements PromptTemplate {
   description = 'Invalid input and error handling scenarios';
 
   generatePrompt(analysis: PageAnalysis, userInstruction: string): string {
-    const validationInfo = analysis.forms.length > 0
-      ? `Field validations: ${analysis.forms[0].validationPattern}`
-      : '';
+    const validationInfo =
+      analysis.forms.length > 0 ? `Field validations: ${analysis.forms[0].validationPattern}` : '';
 
-    const errorElements = analysis.errorElements.length > 0
-      ? `Error elements available: ${analysis.errorElements.map(e => e.description).join(', ')}`
-      : '';
+    const errorElements =
+      analysis.errorElements.length > 0
+        ? `Error elements available: ${analysis.errorElements.map((e) => e.description).join(', ')}`
+        : '';
 
-    const buttons = analysis.buttons.map(b => b.text.toLowerCase()).filter(Boolean).slice(0, 3).join(', ');
-    const buttonExamples = buttons ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'` : 'For button clicks use format: "And I click the "buttonname" button"';
+    const buttons = analysis.buttons
+      .map((b) => b.text.toLowerCase())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+    const buttonExamples = buttons
+      ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'`
+      : 'For button clicks use format: "And I click the "buttonname" button"';
 
     return `Generate negative test Cucumber scenarios for: "${userInstruction}"
 
@@ -112,10 +125,11 @@ class EdgeCaseTemplate implements PromptTemplate {
   description = 'Boundary conditions and special cases';
 
   generatePrompt(analysis: PageAnalysis, userInstruction: string): string {
-    const fields = analysis.inputFields.filter(f => f.validation && f.validation !== 'none');
-    const fieldConstraints = fields.length > 0
-      ? `Constraints: ${fields.map(f => `${f.name} (${f.validation})`).join(', ')}`
-      : '';
+    const fields = analysis.inputFields.filter((f) => f.validation && f.validation !== 'none');
+    const fieldConstraints =
+      fields.length > 0
+        ? `Constraints: ${fields.map((f) => `${f.name} (${f.validation})`).join(', ')}`
+        : '';
 
     return `Generate edge case Cucumber scenarios for: "${userInstruction}"
 
@@ -151,24 +165,38 @@ class ValidationTestTemplate implements PromptTemplate {
   description = 'Input validation and constraint testing';
 
   generatePrompt(analysis: PageAnalysis, userInstruction: string): string {
-    const requiredFields = analysis.inputFields.filter(f => f.required);
-    const emailFields = analysis.inputFields.filter(f => f.type === 'email');
-    const passwordFields = analysis.inputFields.filter(f => f.type === 'password');
-    const numberFields = analysis.inputFields.filter(f => f.type === 'number');
+    const requiredFields = analysis.inputFields.filter((f) => f.required);
+    const emailFields = analysis.inputFields.filter((f) => f.type === 'email');
+    const passwordFields = analysis.inputFields.filter((f) => f.type === 'password');
+    const numberFields = analysis.inputFields.filter((f) => f.type === 'number');
 
     const validationChecks = [
-      requiredFields.length > 0 ? `Required fields: ${requiredFields.map(f => f.label || f.name).join(', ')}` : '',
+      requiredFields.length > 0
+        ? `Required fields: ${requiredFields.map((f) => f.label || f.name).join(', ')}`
+        : '',
       emailFields.length > 0 ? 'Email format validation' : '',
       passwordFields.length > 0 ? 'Password requirements/strength' : '',
       numberFields.length > 0 ? 'Number format validation' : '',
-      analysis.forms[0]?.validationPattern ? `Custom validation: ${analysis.forms[0].validationPattern}` : ''
-    ].filter(Boolean).join('\n');
+      analysis.forms[0]?.validationPattern
+        ? `Custom validation: ${analysis.forms[0].validationPattern}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-    const fieldList = analysis.inputFields.map(f => f.label || f.name).join(', ');
-    const existingFieldsConstraint = fieldList ? `\nONLY test validation for these actual form fields: ${fieldList}` : '\nONLY test validation for fields that actually exist on the form.';
+    const fieldList = analysis.inputFields.map((f) => f.label || f.name).join(', ');
+    const existingFieldsConstraint = fieldList
+      ? `\nONLY test validation for these actual form fields: ${fieldList}`
+      : '\nONLY test validation for fields that actually exist on the form.';
 
-    const buttons = analysis.buttons.map(b => b.text.toLowerCase()).filter(Boolean).slice(0, 3).join(', ');
-    const buttonExamples = buttons ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'` : 'For button clicks use format: "And I click the "buttonname" button"';
+    const buttons = analysis.buttons
+      .map((b) => b.text.toLowerCase())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+    const buttonExamples = buttons
+      ? `Available buttons: ${buttons}. Use format: 'And I click the "buttonname" button'`
+      : 'For button clicks use format: "And I click the "buttonname" button"';
 
     return `Generate validation test Cucumber scenarios for: "${userInstruction}"
 
@@ -213,17 +241,15 @@ class WorkflowTemplate implements PromptTemplate {
 
   generatePrompt(analysis: PageAnalysis, userInstruction: string): string {
     const buttons = analysis.buttons
-      .filter(b => !b.text.toLowerCase().includes('submit'))
+      .filter((b) => !b.text.toLowerCase().includes('submit'))
       .slice(0, 3);
-    
-    const buttonInfo = buttons.length > 0
-      ? `Available actions: ${buttons.map(b => b.text).join(', ')}`
-      : '';
+
+    const buttonInfo =
+      buttons.length > 0 ? `Available actions: ${buttons.map((b) => b.text).join(', ')}` : '';
 
     const links = analysis.links.slice(0, 3);
-    const linkInfo = links.length > 0
-      ? `Navigation options: ${links.map(l => l.text).join(', ')}`
-      : '';
+    const linkInfo =
+      links.length > 0 ? `Navigation options: ${links.map((l) => l.text).join(', ')}` : '';
 
     return `Generate a complete user workflow Cucumber scenario for: "${userInstruction}"
 
@@ -260,7 +286,7 @@ export class PromptTemplateManager {
       ['negative', new NegativeTestTemplate()],
       ['edge-case', new EdgeCaseTemplate()],
       ['validation', new ValidationTestTemplate()],
-      ['workflow', new WorkflowTemplate()]
+      ['workflow', new WorkflowTemplate()],
     ]);
   }
 
@@ -277,13 +303,16 @@ export class PromptTemplateManager {
     return template.generatePrompt(analysis, instruction);
   }
 
-  generateMultipleScenarioPrompts(analysis: PageAnalysis, instruction: string): Map<ScenarioType, string> {
+  generateMultipleScenarioPrompts(
+    analysis: PageAnalysis,
+    instruction: string
+  ): Map<ScenarioType, string> {
     const prompts = new Map<ScenarioType, string>();
-    
+
     for (const [type, template] of this.templates) {
       prompts.set(type, template.generatePrompt(analysis, instruction));
     }
-    
+
     return prompts;
   }
 
@@ -316,10 +345,10 @@ Bad:    '.message' or 'div:nth-of-type(2)'
 
 Step: "${stepDescription}"
 Elements available in page:
-- Input fields: ${analysis.inputFields.map(f => f.name).join(', ')}
-- Buttons: ${analysis.buttons.map(b => b.text).join(', ')}
-- Success elements: ${analysis.successElements.map(e => e.description).join(', ')}
-- Error elements: ${analysis.errorElements.map(e => e.description).join(', ')}
+- Input fields: ${analysis.inputFields.map((f) => f.name).join(', ')}
+- Buttons: ${analysis.buttons.map((b) => b.text).join(', ')}
+- Success elements: ${analysis.successElements.map((e) => e.description).join(', ')}
+- Error elements: ${analysis.errorElements.map((e) => e.description).join(', ')}
 
 Generate a step definition that:
 1. Uses the most robust multi-selector pattern

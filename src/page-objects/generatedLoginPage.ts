@@ -5,7 +5,6 @@
 import { $, browser } from '@wdio/globals';
 
 class LoginPage {
-
   /**
    * Username input field
    */

@@ -25,26 +25,26 @@ describe('SmartLocator', () => {
       };
 
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
-      
+
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.some(s => s.type === 'text')).toBe(true);
-      expect(strategies.some(s => s.type === 'aria')).toBe(true);
+      expect(strategies.some((s) => s.type === 'text')).toBe(true);
+      expect(strategies.some((s) => s.type === 'aria')).toBe(true);
     });
 
     test('should prioritize ID selector highest', async () => {
       const description: ElementDescription = { text: 'Button' };
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
-      
-      const idStrategy = strategies.find(s => s.type === 'id');
+
+      const idStrategy = strategies.find((s) => s.type === 'id');
       expect(idStrategy?.priority).toBeGreaterThan(90);
     });
 
     test('should handle missing attributes gracefully', async () => {
       const description: ElementDescription = { text: 'Button' };
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
-      
+
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.every(s => s.selector)).toBe(true);
+      expect(strategies.every((s) => s.selector)).toBe(true);
     });
   });
 
@@ -88,7 +88,7 @@ describe('SmartLocator', () => {
   describe('Text Sanitization', () => {
     test('should sanitize text for selectors', () => {
       const result = (smartLocator as any).sanitize('Submit Button!@#$%');
-      
+
       expect(result).toBe('submit_button');
       expect(result).not.toContain('!');
       expect(result).not.toContain('@');
@@ -96,7 +96,7 @@ describe('SmartLocator', () => {
 
     test('should handle whitespace', () => {
       const result = (smartLocator as any).sanitize('Multiple   Spaces');
-      
+
       expect(result).toContain('multiple');
       expect(result).not.toContain('   ');
     });
@@ -104,7 +104,7 @@ describe('SmartLocator', () => {
     test('should limit length', () => {
       const longText = 'a'.repeat(100);
       const result = (smartLocator as any).sanitize(longText);
-      
+
       expect(result.length).toBeLessThanOrEqual(50);
     });
   });
@@ -112,7 +112,7 @@ describe('SmartLocator', () => {
   describe('Selector Generation', () => {
     test('should generate ID selector correctly', () => {
       const selector = (smartLocator as any).generateIdSelector('Login Button');
-      
+
       expect(selector).toMatch(/^#/);
       expect(selector.toLowerCase()).toContain('login');
     });
@@ -125,7 +125,7 @@ describe('SmartLocator', () => {
       };
 
       const selector = (smartLocator as any).generateCompositeSelector(desc);
-      
+
       expect(selector).toContain('Search');
       expect(selector).toContain('searchbox');
       expect(selector).toContain('xpath');
@@ -138,10 +138,9 @@ describe('SmartLocator', () => {
       };
 
       const selector = (smartLocator as any).generateFuzzyXPath(desc);
-      
+
       expect(selector).toContain('normalize-space');
-      expect(selector).toContain('xpath') ||
-        expect(selector).toContain('//');
+      expect(selector).toContain('xpath') || expect(selector).toContain('//');
     });
   });
 
@@ -154,7 +153,7 @@ describe('SmartLocator', () => {
       };
 
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
-      
+
       for (let i = 0; i < strategies.length - 1; i++) {
         expect(strategies[i].priority).toBeGreaterThanOrEqual(strategies[i + 1].priority);
       }
@@ -166,9 +165,9 @@ describe('SmartLocator', () => {
       const description: ElementDescription = {};
 
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
-      
+
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.some(s => s.selector.length > 0)).toBe(true);
+      expect(strategies.some((s) => s.selector.length > 0)).toBe(true);
     });
   });
 
@@ -199,16 +198,13 @@ describe('SmartLocator', () => {
 describe('SmartLocator Integration', () => {
   test('should export singleton instance', () => {
     const { smartLocator } = require('./smartLocator');
-    
+
     expect(smartLocator).toBeDefined();
     expect(smartLocator).toBeInstanceOf(SmartLocator);
   });
 
   test('should support re-export from index', () => {
-    const {
-      SmartLocator: SmartLocatorClass,
-      smartLocator: instance,
-    } = require('./index');
+    const { SmartLocator: SmartLocatorClass, smartLocator: instance } = require('./index');
 
     expect(SmartLocatorClass).toBeDefined();
     expect(instance).toBeDefined();

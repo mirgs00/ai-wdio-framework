@@ -21,16 +21,16 @@ const FAILURE_TRACKING_FILE = path.resolve('test-failures.json');
 export class TestFailureTracker {
   static recordFailure(scenario: string, featureName: string, error?: string): void {
     const report = this.loadReport();
-    
+
     const failure: FailedTest = {
       scenario,
       featureName,
       error,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     const existingIndex = report.failures.findIndex(
-      f => f.scenario === scenario && f.featureName === featureName
+      (f) => f.scenario === scenario && f.featureName === featureName
     );
 
     if (existingIndex >= 0) {
@@ -67,7 +67,7 @@ export class TestFailureTracker {
       failedTests: 0,
       passedTests: 0,
       failures: [],
-      lastRunTime: 0
+      lastRunTime: 0,
     };
     this.saveReport(report);
   }
@@ -99,7 +99,7 @@ export class TestFailureTracker {
       failedTests: 0,
       passedTests: 0,
       failures: [],
-      lastRunTime: 0
+      lastRunTime: 0,
     };
   }
 }

@@ -5,7 +5,7 @@ export enum LogLevel {
   DEBUG = 'DEBUG',
   INFO = 'INFO',
   WARN = 'WARN',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
 export interface LogContext {
@@ -37,7 +37,10 @@ class Logger {
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    fs.writeFileSync(this.logFilePath, `\n===== LOG SESSION STARTED: ${new Date().toISOString()} =====\n`);
+    fs.writeFileSync(
+      this.logFilePath,
+      `\n===== LOG SESSION STARTED: ${new Date().toISOString()} =====\n`
+    );
   }
 
   private writeToFile(message: string): void {
@@ -128,8 +131,8 @@ class Logger {
         model,
         temperature,
         promptLength: prompt.length,
-        promptPreview: prompt.substring(0, 100) + '...'
-      }
+        promptPreview: prompt.substring(0, 100) + '...',
+      },
     };
     this.info(`🔄 Calling Ollama API (${model})...`, context);
   }
@@ -143,13 +146,17 @@ class Logger {
         model,
         responseLength: response.length,
         tokensUsed,
-        responsePreview: response.substring(0, 200) + '...'
-      }
+        responsePreview: response.substring(0, 200) + '...',
+      },
     };
     this.info(`✅ Ollama response received`, context);
   }
 
-  logElementDiscovery(pageName: string, elements: unknown[], metadata?: Record<string, unknown>): void {
+  logElementDiscovery(
+    pageName: string,
+    elements: unknown[],
+    metadata?: Record<string, unknown>
+  ): void {
     const context: LogContext = {
       section: 'DOM_ANALYSIS',
       details: {
@@ -157,13 +164,18 @@ class Logger {
         pageName,
         elementCount: Array.isArray(elements) ? elements.length : 0,
         elements,
-        ...metadata
-      }
+        ...metadata,
+      },
     };
     this.info(`📊 Elements discovered on ${pageName}`, context);
   }
 
-  logPageObjectGeneration(pageName: string, pageUrl: string, elementCount: number, filename: string): void {
+  logPageObjectGeneration(
+    pageName: string,
+    pageUrl: string,
+    elementCount: number,
+    filename: string
+  ): void {
     const context: LogContext = {
       section: 'PAGE_OBJECT_GENERATION',
       details: {
@@ -171,8 +183,8 @@ class Logger {
         pageName,
         pageUrl,
         elementCount,
-        filename
-      }
+        filename,
+      },
     };
     this.info(`✅ Generated page object: ${filename}`, context);
   }
@@ -185,8 +197,8 @@ class Logger {
         stepPattern,
         description,
         implementationPreview: implementation.substring(0, 300) + '...',
-        implementationLength: implementation.length
-      }
+        implementationLength: implementation.length,
+      },
     };
     this.info(`⚙️ Processing step: "${stepPattern}"`, context);
   }
@@ -198,13 +210,18 @@ class Logger {
         timestamp: new Date().toISOString(),
         issue,
         resolution,
-        affectedFile
-      }
+        affectedFile,
+      },
     };
     this.info(`🤖 AI intervention applied`, context);
   }
 
-  logTestExecution(featureName: string, status: 'PASS' | 'FAIL', duration: number, summary?: Record<string, unknown>): void {
+  logTestExecution(
+    featureName: string,
+    status: 'PASS' | 'FAIL',
+    duration: number,
+    summary?: Record<string, unknown>
+  ): void {
     const context: LogContext = {
       section: 'TEST_EXECUTION',
       duration,
@@ -212,8 +229,8 @@ class Logger {
         timestamp: new Date().toISOString(),
         featureName,
         status,
-        ...summary
-      }
+        ...summary,
+      },
     };
     this.info(`🧪 Test execution completed: ${status}`, context);
   }
@@ -225,9 +242,11 @@ class Logger {
         timestamp: new Date().toISOString(),
         testName,
         issue,
-        regeneratedElementCount: Array.isArray(regeneratedElements) ? regeneratedElements.length : 0,
-        regeneratedElements
-      }
+        regeneratedElementCount: Array.isArray(regeneratedElements)
+          ? regeneratedElements.length
+          : 0,
+        regeneratedElements,
+      },
     };
     this.info(`🔧 Self-healing triggered for: ${testName}`, context);
   }
@@ -247,7 +266,7 @@ class Logger {
         totalMs: durations.reduce((a, b) => a + b, 0),
         avgMs: Math.round(durations.reduce((a, b) => a + b, 0) / durations.length),
         minMs: Math.min(...durations),
-        maxMs: Math.max(...durations)
+        maxMs: Math.max(...durations),
       };
     }
     return summary;

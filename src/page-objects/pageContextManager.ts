@@ -7,9 +7,9 @@ import errorPage from './generatedErrorPage';
 class PageContextManager {
   private currentPage: string = 'login';
   private pages: { [key: string]: any } = {
-  'login': loginPage,
-  'dashboard': dashboardPage,
-  'error': errorPage,
+    login: loginPage,
+    dashboard: dashboardPage,
+    error: errorPage,
   };
 
   setCurrentPage(pageName: string) {

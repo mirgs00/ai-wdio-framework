@@ -14,7 +14,7 @@ export class ScenarioQualityValidator {
     let score = 100;
 
     const lines = featureContent.split('\n');
-    const hasFeature = lines.some(l => l.trim().startsWith('Feature:'));
+    const hasFeature = lines.some((l) => l.trim().startsWith('Feature:'));
     if (!hasFeature) {
       issues.push('Missing "Feature:" keyword');
       score -= 20;
@@ -28,7 +28,9 @@ export class ScenarioQualityValidator {
       warnings.push('Only one scenario found. Consider adding more test cases.');
       score -= 10;
     } else if (scenarioCount > 10) {
-      warnings.push(`${scenarioCount} scenarios found. Consider breaking into multiple feature files.`);
+      warnings.push(
+        `${scenarioCount} scenarios found. Consider breaking into multiple feature files.`
+      );
     }
 
     const givenCount = (featureContent.match(/\bGiven\b/g) || []).length;
@@ -54,17 +56,22 @@ export class ScenarioQualityValidator {
     if (totalSteps > 0) {
       const avgStepsPerScenario = totalSteps / scenarioCount;
       if (avgStepsPerScenario > 10) {
-        warnings.push(`Average ${avgStepsPerScenario.toFixed(1)} steps per scenario. Consider breaking into smaller scenarios.`);
+        warnings.push(
+          `Average ${avgStepsPerScenario.toFixed(1)} steps per scenario. Consider breaking into smaller scenarios.`
+        );
         score -= 5;
       } else if (avgStepsPerScenario < 3) {
-        warnings.push(`Average ${avgStepsPerScenario.toFixed(1)} steps per scenario. Scenarios may be too simple.`);
+        warnings.push(
+          `Average ${avgStepsPerScenario.toFixed(1)} steps per scenario. Scenarios may be too simple.`
+        );
         score -= 3;
       }
     }
 
-    const invalidGherkin = lines.filter(l => {
+    const invalidGherkin = lines.filter((l) => {
       const trimmed = l.trim();
-      return trimmed.length > 0 &&
+      return (
+        trimmed.length > 0 &&
         !trimmed.startsWith('Feature:') &&
         !trimmed.startsWith('Scenario:') &&
         !trimmed.startsWith('Background:') &&
@@ -74,7 +81,8 @@ export class ScenarioQualityValidator {
         !trimmed.startsWith('And') &&
         !trimmed.startsWith('But') &&
         !trimmed.startsWith('@') &&
-        !trimmed.startsWith('#');
+        !trimmed.startsWith('#')
+      );
     });
 
     if (invalidGherkin.length > 5) {
@@ -110,7 +118,7 @@ export class ScenarioQualityValidator {
       score: Math.max(0, score),
       issues,
       warnings,
-      suggestions
+      suggestions,
     };
   }
 }
@@ -170,20 +178,24 @@ export class StepQualityValidator {
 
     const lines = stepCode.split('\n');
     if (lines.length > 30) {
-      suggestions.push('Step implementation is lengthy. Consider breaking into smaller helper functions');
+      suggestions.push(
+        'Step implementation is lengthy. Consider breaking into smaller helper functions'
+      );
       score -= 5;
     } else if (lines.length < 2) {
       warnings.push('Step implementation is very short. May lack error handling or validation');
       score -= 10;
     }
 
-    const braceBalance = (stepCode.match(/\{/g) || []).length === (stepCode.match(/\}/g) || []).length;
+    const braceBalance =
+      (stepCode.match(/\{/g) || []).length === (stepCode.match(/\}/g) || []).length;
     if (!braceBalance) {
       issues.push('Braces are not balanced in step implementation');
       score -= 30;
     }
 
-    const parenBalance = (stepCode.match(/\(/g) || []).length === (stepCode.match(/\)/g) || []).length;
+    const parenBalance =
+      (stepCode.match(/\(/g) || []).length === (stepCode.match(/\)/g) || []).length;
     if (!parenBalance) {
       issues.push('Parentheses are not balanced in step implementation');
       score -= 30;
@@ -205,7 +217,7 @@ export class StepQualityValidator {
       score: Math.max(0, score),
       issues,
       warnings,
-      suggestions
+      suggestions,
     };
   }
 
@@ -256,7 +268,7 @@ export class StepQualityValidator {
       score: finalScore,
       issues,
       warnings,
-      suggestions
+      suggestions,
     };
   }
 }

@@ -16,10 +16,7 @@ export class LocatorHelper {
   /**
    * Find element using smart locators
    */
-  static async find(
-    description: ElementDescription | string,
-    options: SmartElementOptions = {}
-  ) {
+  static async find(description: ElementDescription | string, options: SmartElementOptions = {}) {
     const {
       waitTime = 10000,
       retries = 3,
@@ -37,11 +34,11 @@ export class LocatorHelper {
 
     try {
       const element = await smartLocator.findElement(description, contextDesc);
-      
+
       if (waitTime > 0) {
         await element.waitForDisplayed({ timeout: waitTime });
       }
-      
+
       return element;
     } catch (error) {
       logger.error(`Failed to find element: ${error}`);
@@ -278,7 +275,7 @@ export class LocatorHelper {
     options: SmartElementOptions = {}
   ): Promise<void> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeout) {
       try {
         if (await this.textContains(description, expectedText, { ...options, waitTime: 1000 })) {
@@ -290,7 +287,7 @@ export class LocatorHelper {
       }
       await browser.pause(500);
     }
-    
+
     throw new Error(`Element text did not contain "${expectedText}" within ${timeout}ms`);
   }
 }

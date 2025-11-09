@@ -32,7 +32,7 @@ export const DEFAULT_PARAMETERS = {
   submit_button: 'button[type="submit"]',
   errorElement: '.error',
   successElement: '.post-title',
-  contentElement: '.content'
+  contentElement: '.content',
 };
 
 async function generatePageObjectFile(): Promise<void> {
@@ -59,14 +59,12 @@ function extractStepsFromFeature(featureContent: string): string[] {
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.match(/^\s*(Given|When|Then|And|But)\s+/)) {
-      const stepText = trimmed
-        .replace(/^\s*(Given|When|Then|And|But)\s+/, '')
-        .trim();
-      
+      const stepText = trimmed.replace(/^\s*(Given|When|Then|And|But)\s+/, '').trim();
+
       if (stepText) {
         // Normalize the step to check for duplicates with different parameter values
         const normalized = normalizeStepForDedup(stepText);
-        
+
         if (!normalizedSteps.has(normalized)) {
           steps.push(stepText);
           normalizedSteps.add(normalized);
@@ -83,20 +81,24 @@ function extractStepsFromFeature(featureContent: string): string[] {
 function determineStepType(step: string): 'Given' | 'When' | 'Then' | 'And' {
   const lowerStep = step.toLowerCase();
 
-  if (lowerStep.includes('navigate') || 
-      lowerStep.includes('open') || 
-      lowerStep.includes('visit') ||
-      lowerStep.includes('on the page') ||
-      lowerStep.includes('on the login')) {
+  if (
+    lowerStep.includes('navigate') ||
+    lowerStep.includes('open') ||
+    lowerStep.includes('visit') ||
+    lowerStep.includes('on the page') ||
+    lowerStep.includes('on the login')
+  ) {
     return 'Given';
   }
 
-  if (lowerStep.includes('should') || 
-      lowerStep.includes('verify') || 
-      lowerStep.includes('expect') ||
-      lowerStep.includes('see') ||
-      lowerStep.includes('remain') ||
-      lowerStep.includes('error message')) {
+  if (
+    lowerStep.includes('should') ||
+    lowerStep.includes('verify') ||
+    lowerStep.includes('expect') ||
+    lowerStep.includes('see') ||
+    lowerStep.includes('remain') ||
+    lowerStep.includes('error message')
+  ) {
     return 'Then';
   }
 
@@ -114,17 +116,17 @@ function generateStepPattern(step: string): string {
 function extractParameters(step: string): string[] {
   const paramCount = (step.match(/"[^"]*"/g) || []).length;
   const parameters: string[] = [];
-  
+
   for (let i = 0; i < paramCount; i++) {
     if (step.toLowerCase().includes('navigate')) {
       parameters.push('url');
     } else if (step.toLowerCase().includes('url should contain')) {
       parameters.push('expectedPath');
     } else {
-      parameters.push(`param${i+1}`);
+      parameters.push(`param${i + 1}`);
     }
   }
-  
+
   return parameters;
 }
 
@@ -142,28 +144,28 @@ function getPageElements(): PageElementInfo[] {
   try {
     const pageObjectContent = readFileSync(GENERATED_PAGE_FILE, 'utf-8');
     const elements: PageElementInfo[] = [];
-    
+
     // Extract getter definitions
     const getterRegex = /get\s+(\w+)\(\)\s*{\s*return\s+\$\(['"]([^'"]+)['"]\);?\s*}/g;
     const commentRegex = /\/\*\*\s*\n\s*\*\s*(.+?)\s*\n\s*\*\//g;
-    
+
     let match;
     while ((match = getterRegex.exec(pageObjectContent)) !== null) {
       const name = match[1];
       const selector = match[2];
-      
+
       // Try to find description comment before the getter
       const beforeGetter = pageObjectContent.substring(0, match.index);
       const commentMatch = beforeGetter.match(/\/\*\*\s*\n\s*\*\s*(.+?)\s*\n\s*\*\//);
       const description = commentMatch ? commentMatch[1].trim() : `${name} element`;
-      
+
       elements.push({
         name,
         selector,
-        description
+        description,
       });
     }
-    
+
     return elements;
   } catch {
     return [];
@@ -180,16 +182,20 @@ async function discoverScenariosWithOllama(
 ): Promise<string[]> {
   try {
     const $ = load(domContent);
-    
+
     // Extract key elements for scenario discovery
     const forms = $('form').length;
     const inputs = $('input, textarea, select').length;
     const buttons = $('button, input[type="submit"]').length;
     const links = $('a[href]').length;
-    
+
     const pageTitle = $('title').text() || 'Unknown Page';
-    const headings = $('h1, h2, h3').map((_, el) => $(el).text().trim()).get().slice(0, 5).join(', ');
-    
+    const headings = $('h1, h2, h3')
+      .map((_, el) => $(el).text().trim())
+      .get()
+      .slice(0, 5)
+      .join(', ');
+
     const prompt = `Analyze this web application and suggest test scenarios.
 
 Application Details:
@@ -217,19 +223,22 @@ Do NOT include Gherkin syntax, just the scenario descriptions.`;
 
     const response = await ollamaClient.generateText(prompt, {
       temperature: 0.5,
-      max_tokens: 300
+      max_tokens: 300,
     });
-    
+
     // Extract scenario suggestions
     const scenarios = response
       .split('\n')
-      .filter(line => line.trim().length > 0)
-      .map(line => line.replace(/^[-*]\s*Scenario:\s*/i, '').trim())
-      .filter(line => line.length > 10);
-    
+      .filter((line) => line.trim().length > 0)
+      .map((line) => line.replace(/^[-*]\s*Scenario:\s*/i, '').trim())
+      .filter((line) => line.length > 10);
+
     return scenarios.slice(0, 5); // Limit to 5 suggestions
   } catch (error) {
-    console.warn('⚠️ Could not discover scenarios with Ollama:', error instanceof Error ? error.message : error);
+    console.warn(
+      '⚠️ Could not discover scenarios with Ollama:',
+      error instanceof Error ? error.message : error
+    );
     return [];
   }
 }
@@ -246,19 +255,21 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
       return 'Unable to fetch DOM for analysis';
     }
   }
-  
+
   try {
     const $ = load(domContent);
     const elements: string[] = [];
-    
+
     // Extract form elements
     $('form').each((_, form) => {
       const formId = $(form).attr('id');
       const formName = $(form).attr('name');
       const formAction = $(form).attr('action');
-      elements.push(`Form: ${formId ? `#${formId}` : formName ? `[name="${formName}"]` : 'form'}${formAction ? ` (action: ${formAction})` : ''}`);
+      elements.push(
+        `Form: ${formId ? `#${formId}` : formName ? `[name="${formName}"]` : 'form'}${formAction ? ` (action: ${formAction})` : ''}`
+      );
     });
-    
+
     // Extract input fields
     $('input, textarea, select').each((_, input) => {
       const id = $(input).attr('id');
@@ -268,10 +279,12 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
       const label = $(input).attr('aria-label') || $(`label[for="${id}"]`).text().trim();
       const selector = id ? `#${id}` : name ? `[name="${name}"]` : '';
       if (selector) {
-        elements.push(`Input (${type}): ${selector}${placeholder ? ` (placeholder: "${placeholder}")` : ''}${label ? ` (label: "${label}")` : ''}`);
+        elements.push(
+          `Input (${type}): ${selector}${placeholder ? ` (placeholder: "${placeholder}")` : ''}${label ? ` (label: "${label}")` : ''}`
+        );
       }
     });
-    
+
     // Extract buttons
     $('button, input[type="submit"], input[type="button"]').each((_, btn) => {
       const id = $(btn).attr('id');
@@ -281,7 +294,7 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
         elements.push(`Button: ${selector} (text: "${text}")`);
       }
     });
-    
+
     // Extract links
     $('a[href]').each((_, link) => {
       const id = $(link).attr('id');
@@ -292,7 +305,7 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
         elements.push(`Link: ${selector} (text: "${text}", href: "${href}")`);
       }
     });
-    
+
     // Extract error/success message containers
     $('[class*="error"], [class*="success"], [class*="message"], [role="alert"]').each((_, el) => {
       const id = $(el).attr('id');
@@ -302,8 +315,8 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
         elements.push(`Message container: ${selector}`);
       }
     });
-    
-    return elements.length > 0 
+
+    return elements.length > 0
       ? `Application Elements:\n${elements.join('\n')}`
       : 'No interactive elements found';
   } catch (error) {
@@ -316,10 +329,10 @@ function getAvailablePageMethods(): string[] {
     const pageObjectContent = readFileSync(GENERATED_PAGE_FILE, 'utf-8');
     const methodMatches = pageObjectContent.match(/async\s+(\w+?)\(/g);
     if (!methodMatches) return [];
-    
+
     return methodMatches
-      .map(m => m.replace('async ', '').replace('(', ''))
-      .filter(m => !m.startsWith('_') && m !== 'constructor');
+      .map((m) => m.replace('async ', '').replace('(', ''))
+      .filter((m) => !m.startsWith('_') && m !== 'constructor');
   } catch {
     return [];
   }
@@ -333,31 +346,31 @@ function validateTypeScript(code: string): boolean {
     const closeBraces = (code.match(/\}/g) || []).length;
     const openParens = (code.match(/\(/g) || []).length;
     const closeParens = (code.match(/\)/g) || []).length;
-    
+
     if (openBraces !== closeBraces || openParens !== closeParens) {
       return false;
     }
-    
+
     // Check for unterminated strings (only for code blocks, not regex patterns)
     const lines = code.split('\n');
     let inString = false;
     let stringChar = '';
-    
+
     for (const line of lines) {
       // Skip lines with regex patterns like Given(/^pattern$/)
       if (line.match(/^\s*(Given|When|Then)\(/)) {
         continue;
       }
-      
+
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
         const prevChar = i > 0 ? line[i - 1] : '';
-        
+
         // Skip escaped quotes
         if (prevChar === '\\') {
           continue;
         }
-        
+
         if ((char === '"' || char === "'") && !inString) {
           inString = true;
           stringChar = char;
@@ -367,7 +380,7 @@ function validateTypeScript(code: string): boolean {
         }
       }
     }
-    
+
     return !inString;
   } catch {
     return false;
@@ -380,14 +393,14 @@ async function generateWithRetry(
   retries = 2
 ): Promise<string> {
   let lastError: Error | null = null;
-  
+
   while (retries-- > 0) {
     try {
       const result = await ollamaClient.generateText(prompt, {
         temperature: 0.1,
-        max_tokens: 500
+        max_tokens: 500,
       });
-      
+
       const cleaned = cleanImplementation(result);
       if (validateTypeScript(cleaned)) {
         return cleaned;
@@ -396,7 +409,7 @@ async function generateWithRetry(
       lastError = error as Error;
     }
   }
-  
+
   throw lastError || new Error('Generation failed after retries');
 }
 
@@ -432,12 +445,13 @@ async function generateStepImplementation(
   // Get available page elements
   const pageElements = context?.pageElements || getPageElements();
   const applicationContext = context?.applicationContext || '';
-  
+
   // Build element reference string
-  const elementReferences = pageElements.length > 0
-    ? `\nAvailable Page Elements (use these selectors in your code):\n${pageElements.map(el => `  - ${el.name}: selector "${el.selector}" (${el.description})`).join('\n')}\n`
-    : '';
-  
+  const elementReferences =
+    pageElements.length > 0
+      ? `\nAvailable Page Elements (use these selectors in your code):\n${pageElements.map((el) => `  - ${el.name}: selector "${el.selector}" (${el.description})`).join('\n')}\n`
+      : '';
+
   const prompt = `You are an expert WebdriverIO test automation engineer. Generate ONLY the code implementation for this step.
 
 Step to implement: "${step}"
@@ -486,13 +500,13 @@ Now generate the implementation for: "${step}"`;
 
   try {
     let implementation = await generateWithRetry(prompt, ollamaClient, 3);
-    
+
     // Final validation and wrapping
     const trimmed = implementation.trim();
     if (!trimmed.startsWith('try {')) {
       implementation = `try {\n  ${trimmed}\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\`Step execution failed: \${errorMessage}\`);\n}`;
     }
-    
+
     return implementation;
   } catch (error) {
     console.warn(`⚠️ AI generation failed for "${step}": ${(error as Error).message}`);
@@ -510,7 +524,10 @@ function generateFallbackImplementation(
   const lowerStep = step.toLowerCase();
 
   // Navigation Steps
-  if (stepType === 'Given' && (lowerStep.includes('navigate') || lowerStep.includes('on the login'))) {
+  if (
+    stepType === 'Given' &&
+    (lowerStep.includes('navigate') || lowerStep.includes('on the login'))
+  ) {
     const urlParam = parameters[0] || 'url';
     if (lowerStep.includes('login')) {
       return `try {
@@ -581,26 +598,33 @@ function generateFallbackImplementation(
   // Form Submission - use actual page elements if available
   if (lowerStep.includes('submit form')) {
     const isInvalid = lowerStep.includes('invalid');
-    const usernameEl = pageElements?.find(el => 
-      el.name.toLowerCase().includes('username') || 
-      el.selector.includes('username') || 
-      el.selector.includes('#username')
+    const usernameEl = pageElements?.find(
+      (el) =>
+        el.name.toLowerCase().includes('username') ||
+        el.selector.includes('username') ||
+        el.selector.includes('#username')
     );
-    const passwordEl = pageElements?.find(el => 
-      el.name.toLowerCase().includes('password') || 
-      el.selector.includes('password') || 
-      el.selector.includes('#password')
+    const passwordEl = pageElements?.find(
+      (el) =>
+        el.name.toLowerCase().includes('password') ||
+        el.selector.includes('password') ||
+        el.selector.includes('#password')
     );
-    const submitEl = pageElements?.find(el => 
-      el.name.toLowerCase().includes('submit') || 
-      el.selector.includes('submit') || 
-      el.name.toLowerCase().includes('button')
+    const submitEl = pageElements?.find(
+      (el) =>
+        el.name.toLowerCase().includes('submit') ||
+        el.selector.includes('submit') ||
+        el.name.toLowerCase().includes('button')
     );
-    
-    const usernameSelector = usernameEl ? `'${usernameEl.selector}'` : 'DEFAULT_PARAMETERS.usernameField';
-    const passwordSelector = passwordEl ? `'${passwordEl.selector}'` : 'DEFAULT_PARAMETERS.passwordField';
+
+    const usernameSelector = usernameEl
+      ? `'${usernameEl.selector}'`
+      : 'DEFAULT_PARAMETERS.usernameField';
+    const passwordSelector = passwordEl
+      ? `'${passwordEl.selector}'`
+      : 'DEFAULT_PARAMETERS.passwordField';
     const submitSelector = submitEl ? `'${submitEl.selector}'` : 'DEFAULT_PARAMETERS.submit_button';
-    
+
     return `try {
   await $(${usernameSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidUsername' : 'DEFAULT_PARAMETERS.username'});
   await $(${passwordSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidPassword' : 'DEFAULT_PARAMETERS.password'});
@@ -693,7 +717,12 @@ function generateFallbackImplementation(
   }
 
   // Page header or success message with text verification
-  if ((lowerStep.includes('page header') || lowerStep.includes('success') || lowerStep.includes('message')) && lowerStep.includes('containing text')) {
+  if (
+    (lowerStep.includes('page header') ||
+      lowerStep.includes('success') ||
+      lowerStep.includes('message')) &&
+    lowerStep.includes('containing text')
+  ) {
     const textParam = parameters[0] || 'expectedText';
     return `try {
   // Try to find the element in dashboard page first
@@ -739,10 +768,10 @@ function generateFallbackImplementation(
 function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
   const seenPatterns = new Map<string, StepDefinition>();
   const duplicateLogs: string[] = [];
-  
+
   for (const step of stepDefinitions) {
     const key = `${step.type}:${step.pattern}`;
-    
+
     if (!seenPatterns.has(key)) {
       seenPatterns.set(key, step);
     } else {
@@ -753,12 +782,14 @@ function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
       console.log(message);
     }
   }
-  
+
   // Log summary if duplicates were found
   if (duplicateLogs.length > 0) {
-    console.log(`\n📌 Deduplication Summary: Found and removed ${duplicateLogs.length} duplicate step definition(s)`);
+    console.log(
+      `\n📌 Deduplication Summary: Found and removed ${duplicateLogs.length} duplicate step definition(s)`
+    );
   }
-  
+
   return Array.from(seenPatterns.values());
 }
 
@@ -788,14 +819,16 @@ dotenv.config();
   // Deduplicate steps before generating
   const deduplicatedSteps = deduplicateSteps(stepDefinitions);
 
-  const steps = deduplicatedSteps.map(step => {
-    return `/**
+  const steps = deduplicatedSteps
+    .map((step) => {
+      return `/**
  * Implements: "${step.originalText.replace(/"/g, '\\"')}"
  */
 ${step.type}(/${step.pattern}/, async function (${step.parameters.join(', ')}) {
 ${step.implementation}
 });`;
-  }).join('\n\n');
+    })
+    .join('\n\n');
 
   if (!validateTypeScript(steps)) {
     throw new Error('Generated steps contain syntax errors');
@@ -830,12 +863,12 @@ export async function buildStepDefinitions(
   const pageElements = getPageElements();
   let applicationContext = '';
   const discoveredScenarios: string[] = [];
-  
+
   if (url) {
     try {
       applicationContext = await analyzeApplicationContext(url, domContent);
       console.log(`✅ Analyzed ${pageElements.length} page elements`);
-      
+
       // Discover additional scenarios using Ollama
       if (domContent) {
         console.log('🧠 Discovering additional test scenarios with AI...');
@@ -849,12 +882,15 @@ export async function buildStepDefinitions(
         }
       }
     } catch (error) {
-      console.warn('⚠️ Could not analyze application context:', error instanceof Error ? error.message : error);
+      console.warn(
+        '⚠️ Could not analyze application context:',
+        error instanceof Error ? error.message : error
+      );
     }
   }
 
   console.log(`📋 Generating implementations for ${steps.length} steps...`);
-  
+
   // Check Ollama health before processing steps
   const ollamaHealthy = await ollamaClient.checkHealth();
   if (!ollamaHealthy) {
@@ -866,28 +902,28 @@ export async function buildStepDefinitions(
     console.warn('⚠️  ');
     console.warn('⚠️  To enable AI features, start Ollama:');
     console.warn('⚠️    1. npm run ollama:start       (in another terminal)');
-    console.warn('⚠️    2. npm run ollama:check       (verify it\'s running)');
+    console.warn("⚠️    2. npm run ollama:check       (verify it's running)");
     console.warn('⚠️    3. Re-run generation command');
     console.warn('⚠️  ═══════════════════════════════════════════════════════════════\n');
   } else {
     console.log('✅ Ollama service is healthy - AI-powered step generation ENABLED\n');
   }
-  
+
   for (const step of steps) {
     console.log(`⚙️ Processing step: "${step}"`);
     const stepType = determineStepType(step);
     const pattern = generateStepPattern(step);
     const parameters = extractParameters(step);
-    
+
     const implementation = await generateStepImplementation(
-      step, 
-      stepType, 
-      parameters, 
+      step,
+      stepType,
+      parameters,
       ollamaClient,
       {
         pageElements,
         applicationContext,
-        url
+        url,
       }
     );
 
@@ -896,23 +932,25 @@ export async function buildStepDefinitions(
       pattern,
       implementation,
       originalText: step,
-      parameters
+      parameters,
     });
   }
 
   // Count unique patterns before deduplication
-  const uniquePatterns = new Set(stepDefinitions.map(s => `${s.type}:${s.pattern}`)).size;
-  
+  const uniquePatterns = new Set(stepDefinitions.map((s) => `${s.type}:${s.pattern}`)).size;
+
   const stepDefinitionsCode = generateStepDefinitionsFile(stepDefinitions);
   writeFileSync(GENERATED_STEPS_FILE, stepDefinitionsCode, 'utf-8');
-  
+
   const duplicateCount = stepDefinitions.length - uniquePatterns;
-  console.log(`✅ Successfully generated ${uniquePatterns} unique step definitions${duplicateCount > 0 ? ` (${duplicateCount} duplicates removed)` : ''}`);
+  console.log(
+    `✅ Successfully generated ${uniquePatterns} unique step definitions${duplicateCount > 0 ? ` (${duplicateCount} duplicates removed)` : ''}`
+  );
 
   const validation = stepQualityValidator.validateAllSteps(stepDefinitionsCode);
   console.log(`📝 Step Quality Score: ${validation.score}/100`);
   if (validation.warnings.length > 0) {
     console.log('⚠️ Warnings:');
-    validation.warnings.slice(0, 3).forEach(w => console.log(`   - ${w}`));
+    validation.warnings.slice(0, 3).forEach((w) => console.log(`   - ${w}`));
   }
 }

@@ -3,7 +3,6 @@
 import { $, browser } from '@wdio/globals';
 
 class GeneratedPage {
-
   /**
    * Username input field
    */
@@ -29,7 +28,9 @@ class GeneratedPage {
    * Success message
    */
   get success_text() {
-    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
+    return $(
+      '#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]'
+    );
   }
 
   /**

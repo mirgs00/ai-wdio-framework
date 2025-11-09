@@ -12,10 +12,10 @@ export async function waitForSelector(
 ): Promise<WebdriverIO.Element> {
   try {
     const element = $(selector);
-    
+
     await element.waitForExist({
       timeout,
-      timeoutMsg: `Selector not found: ${selector}${stepName ? ` (step: ${stepName})` : ''}`
+      timeoutMsg: `Selector not found: ${selector}${stepName ? ` (step: ${stepName})` : ''}`,
     });
 
     return element;
@@ -49,10 +49,7 @@ export async function safeSetValue(
 /**
  * Safely clicks an element with existence check
  */
-export async function safeClick(
-  selector: string,
-  stepName?: string
-): Promise<void> {
+export async function safeClick(selector: string, stepName?: string): Promise<void> {
   try {
     const element = await waitForSelector(selector, 5000, stepName);
     await element.click();
@@ -65,10 +62,7 @@ export async function safeClick(
 /**
  * Safely gets text from an element with existence check
  */
-export async function safeGetText(
-  selector: string,
-  stepName?: string
-): Promise<string> {
+export async function safeGetText(selector: string, stepName?: string): Promise<string> {
   try {
     const element = await waitForSelector(selector, 5000, stepName);
     return await element.getText();
@@ -81,20 +75,17 @@ export async function safeGetText(
 /**
  * Safely checks if element is displayed with fallback to isExisting
  */
-export async function safeIsDisplayed(
-  selector: string,
-  stepName?: string
-): Promise<boolean> {
+export async function safeIsDisplayed(selector: string, stepName?: string): Promise<boolean> {
   try {
     const element = $(selector);
-    
+
     // First check if element exists
     const exists = await element.isExisting({ timeout: 2000 });
     if (!exists) {
-      logger.warn(
-        `Element does not exist${stepName ? ` (step: ${stepName})` : ''}`,
-        { section: 'SELECTOR_CHECK', details: { selector, stepName } }
-      );
+      logger.warn(`Element does not exist${stepName ? ` (step: ${stepName})` : ''}`, {
+        section: 'SELECTOR_CHECK',
+        details: { selector, stepName },
+      });
       return false;
     }
 
@@ -102,10 +93,10 @@ export async function safeIsDisplayed(
     const displayed = await element.isDisplayed();
     return displayed;
   } catch (error) {
-    logger.warn(
-      `Error checking if element is displayed${stepName ? ` (step: ${stepName})` : ''}`,
-      { section: 'SELECTOR_CHECK', details: { error: error instanceof Error ? error.message : error } }
-    );
+    logger.warn(`Error checking if element is displayed${stepName ? ` (step: ${stepName})` : ''}`, {
+      section: 'SELECTOR_CHECK',
+      details: { error: error instanceof Error ? error.message : error },
+    });
     return false;
   }
 }
@@ -126,7 +117,7 @@ export async function trySelectorVariants(
       const element = await waitForSelector(selector, timeout, stepName);
       logger.info(`Found element using selector variant: ${selector}`, {
         section: 'SELECTOR_FALLBACK',
-        details: { stepName, variantUsed: selector, totalVariants: selectorVariants.length }
+        details: { stepName, variantUsed: selector, totalVariants: selectorVariants.length },
       });
       return { element, selector };
     } catch (error) {
@@ -134,7 +125,7 @@ export async function trySelectorVariants(
     }
   }
 
-  const errorMsg = `None of the selector variants worked:\n${errors.map(s => `  - ${s}`).join('\n')}`;
+  const errorMsg = `None of the selector variants worked:\n${errors.map((s) => `  - ${s}`).join('\n')}`;
   logger.error(
     `All selector variants failed${stepName ? ` (step: ${stepName})` : ''}`,
     new Error(errorMsg)
@@ -168,7 +159,7 @@ export function logSelectorUsage(
 ): void {
   logger.debug(`[SELECTOR_USAGE] ${action.toUpperCase()} on ${selector}`, {
     section: 'SELECTOR_DEBUG',
-    details: { stepPattern, selector, action }
+    details: { stepPattern, selector, action },
   });
 }
 
@@ -182,35 +173,30 @@ export function getFallbackSelectors(elementType: string): string[] {
       'button:contains("Submit")',
       'button:contains("submit")',
       '[role="button"][type="submit"]',
-      'button[data-testid*="submit"]'
+      'button[data-testid*="submit"]',
     ],
     success_message: [
       '.success',
       '[class*="success"]',
       '.alert-success',
       '[role="alert"]',
-      '[id*="success"]'
+      '[id*="success"]',
     ],
     error_message: [
       '.error',
       '[class*="error"]',
       '.alert-error',
       '[class*="danger"]',
-      '[role="alert"]'
+      '[role="alert"]',
     ],
-    input_field: [
-      'input[type="text"]',
-      'input',
-      '[type="text"]',
-      '[role="textbox"]'
-    ],
+    input_field: ['input[type="text"]', 'input', '[type="text"]', '[role="textbox"]'],
     login_button: [
       'button[type="submit"]',
       'button:contains("Login")',
       'button:contains("login")',
       'button:contains("Sign In")',
-      '[data-testid*="login"]'
-    ]
+      '[data-testid*="login"]',
+    ],
   };
 
   return fallbacks[elementType] || [];

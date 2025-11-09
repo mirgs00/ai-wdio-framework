@@ -21,7 +21,7 @@ export async function executeStepWithHealing<T>(
     stepText,
     pageName = getCurrentPageName(),
     enableHealing = true,
-    maxRetries = 2
+    maxRetries = 2,
   } = options;
 
   let lastError: Error | null = null;
@@ -47,7 +47,7 @@ export async function executeStepWithHealing<T>(
         pageName,
         errorMessage: lastError.message,
         errorType: classifyError(lastError),
-        attemptCount: attempt + 1
+        attemptCount: attempt + 1,
       };
 
       const healingResult = await selfHealingService.healStep(healingContext);
@@ -82,7 +82,7 @@ function getCurrentPageName(): string {
   try {
     const currentPage = pageContextManager.getCurrentPage();
     const pages = pageContextManager.getAllPages();
-    
+
     for (const [pageName, pageObj] of Object.entries(pages)) {
       if (pageObj === currentPage) {
         return pageName;
@@ -97,27 +97,35 @@ function getCurrentPageName(): string {
 /**
  * Classify error type to guide healing strategy
  */
-function classifyError(error: Error): 'selector_not_found' | 'assertion_failed' | 'action_failed' | 'unknown' {
+function classifyError(
+  error: Error
+): 'selector_not_found' | 'assertion_failed' | 'action_failed' | 'unknown' {
   const message = error.message.toLowerCase();
 
-  if (message.includes('not found') || 
-      message.includes('no such element') ||
-      message.includes('stale element') ||
-      message.includes('detached from dom')) {
+  if (
+    message.includes('not found') ||
+    message.includes('no such element') ||
+    message.includes('stale element') ||
+    message.includes('detached from dom')
+  ) {
     return 'selector_not_found';
   }
 
-  if (message.includes('assertion') || 
-      message.includes('expected') ||
-      message.includes('to contain') ||
-      message.includes('toBeDisplayed')) {
+  if (
+    message.includes('assertion') ||
+    message.includes('expected') ||
+    message.includes('to contain') ||
+    message.includes('toBeDisplayed')
+  ) {
     return 'assertion_failed';
   }
 
-  if (message.includes('click') || 
-      message.includes('setValue') ||
-      message.includes('cannot perform') ||
-      message.includes('not clickable')) {
+  if (
+    message.includes('click') ||
+    message.includes('setValue') ||
+    message.includes('cannot perform') ||
+    message.includes('not clickable')
+  ) {
     return 'action_failed';
   }
 
@@ -131,14 +139,13 @@ function classifyError(error: Error): 'selector_not_found' | 'assertion_failed' 
  * When(/^user enters username "([^"]*)"$/, async function(username) { ... })
  */
 export function healableStep(description: string) {
-  return function(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function(...args: any[]) {
-      return executeStepWithHealing(
-        () => originalMethod.apply(this, args),
-        { stepText: description }
-      );
+    descriptor.value = async function (...args: any[]) {
+      return executeStepWithHealing(() => originalMethod.apply(this, args), {
+        stepText: description,
+      });
     };
 
     return descriptor;

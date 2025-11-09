@@ -257,7 +257,9 @@ class TodoAppPageExample extends SmartPageObject {
     return this.actionAndVerify(
       async () => {
         // Find todo item and click delete
-        const todoItems = await browser.$$('xpath=//*[contains(text(), "' + todoText + '")]/../button');
+        const todoItems = await browser.$$(
+          'xpath=//*[contains(text(), "' + todoText + '")]/../button'
+        );
         if (todoItems.length > 0) {
           await todoItems[0].click();
         }

@@ -14,39 +14,77 @@ export class ScenarioClassifier {
     const lower = text.toLowerCase();
 
     const negativeKeywords = [
-      'invalid', 'error', 'fail', 'negative', 'wrong', 'incorrect',
-      'cannot', 'should not', 'must not', 'unable', 'denied', 'rejected'
+      'invalid',
+      'error',
+      'fail',
+      'negative',
+      'wrong',
+      'incorrect',
+      'cannot',
+      'should not',
+      'must not',
+      'unable',
+      'denied',
+      'rejected',
     ];
 
     const edgeCaseKeywords = [
-      'boundary', 'edge', 'corner', 'extreme', 'maximum', 'minimum',
-      'empty', 'null', 'special character', 'unicode', 'overflow',
-      'underflow', 'whitespace', 'leading', 'trailing'
+      'boundary',
+      'edge',
+      'corner',
+      'extreme',
+      'maximum',
+      'minimum',
+      'empty',
+      'null',
+      'special character',
+      'unicode',
+      'overflow',
+      'underflow',
+      'whitespace',
+      'leading',
+      'trailing',
     ];
 
     const validationKeywords = [
-      'validate', 'validation', 'format', 'constraint', 'required',
-      'mandatory', 'length', 'pattern', 'regex', 'verify'
+      'validate',
+      'validation',
+      'format',
+      'constraint',
+      'required',
+      'mandatory',
+      'length',
+      'pattern',
+      'regex',
+      'verify',
     ];
 
     const workflowKeywords = [
-      'workflow', 'journey', 'complete', 'multiple', 'series', 'sequence',
-      'navigate', 'navigation', 'process', 'flow'
+      'workflow',
+      'journey',
+      'complete',
+      'multiple',
+      'series',
+      'sequence',
+      'navigate',
+      'navigation',
+      'process',
+      'flow',
     ];
 
-    if (negativeKeywords.some(kw => lower.includes(kw))) {
+    if (negativeKeywords.some((kw) => lower.includes(kw))) {
       return 'negative';
     }
 
-    if (edgeCaseKeywords.some(kw => lower.includes(kw))) {
+    if (edgeCaseKeywords.some((kw) => lower.includes(kw))) {
       return 'edge-case';
     }
 
-    if (validationKeywords.some(kw => lower.includes(kw))) {
+    if (validationKeywords.some((kw) => lower.includes(kw))) {
       return 'validation';
     }
 
-    if (workflowKeywords.some(kw => lower.includes(kw))) {
+    if (workflowKeywords.some((kw) => lower.includes(kw))) {
       return 'workflow';
     }
 
@@ -56,10 +94,10 @@ export class ScenarioClassifier {
   generateTagsForType(type: ScenarioType): string[] {
     const tagMap: Record<ScenarioType, string[]> = {
       'happy-path': ['@positive', '@happy-path', '@smoke'],
-      'negative': ['@negative', '@error', '@validation'],
+      negative: ['@negative', '@error', '@validation'],
       'edge-case': ['@edge-case', '@boundary', '@corner-case'],
-      'validation': ['@validation', '@format', '@constraint'],
-      'workflow': ['@workflow', '@integration', '@e2e']
+      validation: ['@validation', '@format', '@constraint'],
+      workflow: ['@workflow', '@integration', '@e2e'],
     };
 
     return tagMap[type] || ['@functional'];
@@ -76,7 +114,7 @@ export class ScenarioClassifier {
       type,
       tags,
       description,
-      priority
+      priority,
     };
   }
 
@@ -85,10 +123,10 @@ export class ScenarioClassifier {
 
     const priorityMap: Record<ScenarioType, number> = {
       'happy-path': 10,
-      'negative': 8,
-      'validation': 7,
+      negative: 8,
+      validation: 7,
       'edge-case': 5,
-      'workflow': 9
+      workflow: 9,
     };
 
     priority = priorityMap[type];
@@ -111,10 +149,10 @@ export class ScenarioClassifier {
   private generateDescription(type: ScenarioType, title: string): string {
     const descriptions: Record<ScenarioType, string> = {
       'happy-path': 'Tests successful user interaction with valid data and expected outcomes',
-      'negative': 'Tests error handling and validation with invalid or malformed data',
+      negative: 'Tests error handling and validation with invalid or malformed data',
       'edge-case': 'Tests boundary conditions and special cases that might break functionality',
-      'validation': 'Tests input validation, constraints, and data format requirements',
-      'workflow': 'Tests complete user workflow spanning multiple interactions'
+      validation: 'Tests input validation, constraints, and data format requirements',
+      workflow: 'Tests complete user workflow spanning multiple interactions',
     };
 
     return descriptions[type];
@@ -137,29 +175,34 @@ export class ScenarioClassifier {
     return grouped;
   }
 
-  recommendScenarioCount(pageComplexity: 'simple' | 'moderate' | 'complex'): Record<ScenarioType, number> {
-    const recommendations: Record<'simple' | 'moderate' | 'complex', Record<ScenarioType, number>> = {
+  recommendScenarioCount(
+    pageComplexity: 'simple' | 'moderate' | 'complex'
+  ): Record<ScenarioType, number> {
+    const recommendations: Record<
+      'simple' | 'moderate' | 'complex',
+      Record<ScenarioType, number>
+    > = {
       simple: {
         'happy-path': 2,
-        'negative': 1,
+        negative: 1,
         'edge-case': 0,
-        'validation': 1,
-        'workflow': 0
+        validation: 1,
+        workflow: 0,
       },
       moderate: {
         'happy-path': 2,
-        'negative': 2,
+        negative: 2,
         'edge-case': 1,
-        'validation': 2,
-        'workflow': 1
+        validation: 2,
+        workflow: 1,
       },
       complex: {
         'happy-path': 3,
-        'negative': 3,
+        negative: 3,
         'edge-case': 2,
-        'validation': 3,
-        'workflow': 2
-      }
+        validation: 3,
+        workflow: 2,
+      },
     };
 
     return recommendations[pageComplexity];
@@ -197,27 +240,15 @@ export class ScenarioClassifier {
     const scenarios: ClassifiedScenario[] = [];
 
     const scenarioTemplates: Record<ScenarioType, string[]> = {
-      'happy-path': [
-        `${baseTitle} - Happy path`,
-        `${baseTitle} - Successful completion`
-      ],
-      'negative': [
-        `${baseTitle} - With invalid input`,
-        `${baseTitle} - Error handling`
-      ],
-      'edge-case': [
-        `${baseTitle} - Boundary conditions`,
-        `${baseTitle} - Edge cases`
-      ],
-      'validation': [
+      'happy-path': [`${baseTitle} - Happy path`, `${baseTitle} - Successful completion`],
+      negative: [`${baseTitle} - With invalid input`, `${baseTitle} - Error handling`],
+      'edge-case': [`${baseTitle} - Boundary conditions`, `${baseTitle} - Edge cases`],
+      validation: [
         `${baseTitle} - Input validation`,
         `${baseTitle} - Format validation`,
-        `${baseTitle} - Constraint checking`
+        `${baseTitle} - Constraint checking`,
       ],
-      'workflow': [
-        `${baseTitle} - Complete workflow`,
-        `${baseTitle} - Multi-step journey`
-      ]
+      workflow: [`${baseTitle} - Complete workflow`, `${baseTitle} - Multi-step journey`],
     };
 
     for (const [type, count] of Object.entries(recommendations) as [ScenarioType, number][]) {

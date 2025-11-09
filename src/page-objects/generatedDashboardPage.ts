@@ -5,12 +5,13 @@
 import { $, browser } from '@wdio/globals';
 
 class DashboardPage {
-
   /**
    * Success message
    */
   get success_text() {
-    return $('h1.post-title, #success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
+    return $(
+      'h1.post-title, #success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]'
+    );
   }
 
   /**
@@ -22,7 +23,9 @@ class DashboardPage {
 
   // Common actions
   async open() {
-    await browser.url('https://practicetestautomation.com/practice-test-login/logged-in-successfully/');
+    await browser.url(
+      'https://practicetestautomation.com/practice-test-login/logged-in-successfully/'
+    );
     await this.waitForPageLoad();
   }
 
