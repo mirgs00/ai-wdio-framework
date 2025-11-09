@@ -1,4 +1,5 @@
 // src/utils/test-gen/scenarioBuilder.ts
+import 'dotenv/config';
 import { getDOMSnapshot } from '../dom/domParser';
 import { OllamaClient } from '../ai/ollamaClient';
 import { analyzeDOM } from '../dom/domAnalyzer';

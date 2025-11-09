@@ -22,6 +22,7 @@ import { TestFailureTracker } from './utils/test-gen/testFailureTracker';
 import { DuplicateGetterDetector } from './utils/test-gen/duplicateGetterDetector';
 import { HealingWorkflow } from './utils/healing/healingWorkflow';
 import { rerunFailedStepsService } from './utils/test-gen/rerunFailedSteps';
+import { InputValidator } from './utils/validation';
 
 interface TestGenerationConfig {
   ollamaModel?: string;
@@ -523,10 +524,9 @@ async function main() {
 
   const config: TestGenerationConfig = {
     ollamaModel: typeof parsedArgs['model'] === 'string' ? parsedArgs['model'] : undefined,
-    testTimeout:
-      typeof parsedArgs['timeout'] === 'string'
-        ? parseInt(parsedArgs['timeout'])
-        : TIMEOUTS.DEFAULT_TEST_TIMEOUT,
+    testTimeout: InputValidator.validateTimeout(
+      typeof parsedArgs['timeout'] === 'string' ? parsedArgs['timeout'] : undefined
+    ),
     screenshotOnFailure: !parsedArgs['no-screenshots'],
   };
 
@@ -650,18 +650,13 @@ async function main() {
         process.exit(1);
       }
 
-      // Validate URL
-      if (!isValidUrl(url)) {
-        console.error(`❌ Invalid URL: ${url}. Only http:// and https:// URLs are allowed.`);
-        process.exit(1);
-      }
-
-      const instruction = instructionParts.join(' ');
+      const validatedUrl = InputValidator.validateURL(url);
+      const instruction = InputValidator.sanitizePrompt(instructionParts.join(' '));
 
       console.log(
         [
           `🚀 Starting AI-powered test generation`,
-          `📌 URL: ${url}`,
+          `📌 URL: ${validatedUrl}`,
           `📝 Instruction: ${instruction}`,
           `🤖 Model: ${config.ollamaModel || 'llama3'}`,
           `⏱️ Timeout: ${config.testTimeout}ms`,
@@ -670,7 +665,7 @@ async function main() {
         ].join('\n')
       );
 
-      const { featureFilePath } = await generateTestArtifacts(url, instruction, config);
+      const { featureFilePath } = await generateTestArtifacts(validatedUrl, instruction, config);
 
       if (shouldRunTests) {
         runTests(featureFilePath, config.testTimeout);

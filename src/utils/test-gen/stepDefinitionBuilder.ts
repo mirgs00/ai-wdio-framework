@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';

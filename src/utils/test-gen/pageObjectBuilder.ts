@@ -1,4 +1,5 @@
 // src/utils/test-gen/pageObjectBuilder.ts
+import 'dotenv/config';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';
