@@ -1,61 +1,23 @@
-// Auto-generated Page Object for: https://practicetestautomation.com/practice-test-login/logged-in-successfully/
+// Auto-generated Page Object for dashboard
+// Page URL: https://practicetestautomation.com/practice-test-login/logged-in-successfully/
+// Description: Dashboard page after successful login
+// Elements: success, loggedInHeading
 import { $, browser } from '@wdio/globals';
 
-class GeneratedPage {
+class DashboardPage {
+
   /**
-   * Heading (H2): Test login
+   * Success message
    */
-  get testLogin_heading() {
-    return $('h2');
+  get success_text() {
+    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
   }
 
   /**
-   * Heading (H5): Test case 1: Positive LogIn test
+   * Logged in success heading
    */
-  get testCase1PositiveLogInTest_heading() {
-    return $('h5');
-  }
-
-  /**
-   * Success message: Home
-Practice
-Courses
-Blog
-Contact
-
-							
-						
-   */
-  get overflowContainer_success() {
-    return $('#overflow-container');
-  }
-
-  /**
-   * Success message: Home
-Practice
-Courses
-Blog
-Contact
-
-							
-						
-   */
-  get maxWidth_success() {
-    return $('#max-width');
-  }
-
-  /**
-   * Text element: Test login
-   */
-  get test_login_text() {
-    return $('h2');
-  }
-
-  /**
-   * Text element: Test case 1: Positive LogIn test
-   */
-  get test_case_1_Positive_LogIn_te_text() {
-    return $('h5');
+  get loggedInHeading_text() {
+    return $('h1, h2, [class*="heading"], [class*="title"]');
   }
 
   // Common actions
@@ -72,4 +34,4 @@ Contact
   }
 }
 
-export default new GeneratedPage();
+export default new DashboardPage();

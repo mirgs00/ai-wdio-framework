@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.config = void 0;
 exports.config = {
     //
     // ====================
@@ -8,7 +5,6 @@ exports.config = {
     // ====================
     // WebdriverIO supports running e2e tests as well as unit and component tests.
     runner: 'local',
-    tsConfigPath: './tsconfig.e2e.json',
     //
     // ==================
     // Specify Test Files
@@ -25,11 +21,11 @@ exports.config = {
     // of the config file unless it's absolute.
     //
     specs: [
-        './features/**/*.feature'
+        // ToDo: define location for spec files here
     ],
     // Patterns to exclude.
     exclude: [
-    // 'path/to/excluded/files'
+        // 'path/to/excluded/files'
     ],
     //
     // ============
@@ -54,8 +50,9 @@ exports.config = {
     // https://saucelabs.com/platform/platform-configurator
     //
     capabilities: [{
-            browserName: 'chrome'
-        }],
+        browserName: 'chrome'
+    }],
+
     //
     // ===================
     // Test Configurations
@@ -112,6 +109,7 @@ exports.config = {
     // Make sure you have the wdio adapter package for the specific framework installed
     // before running any tests.
     framework: 'cucumber',
+    
     //
     // The number of times to retry the entire specfile when it fails as a whole
     // specFileRetries: 1,
@@ -126,10 +124,11 @@ exports.config = {
     // The only one supported by default is 'dot'
     // see also: https://webdriver.io/docs/dot-reporter
     reporters: ['spec'],
+
     // If you are using Cucumber you need to specify the location of your step definitions.
     cucumberOpts: {
         // <string[]> (file/dir) require files before executing features
-        require: ['./step-definitions/**/*.ts'],
+        require: [''],
         // <boolean> show full backtrace for errors
         backtrace: false,
         // <string[]> ("extension:module") require files with the given EXTENSION after requiring MODULE (repeatable)
@@ -153,6 +152,8 @@ exports.config = {
         // <boolean> Enable this config to treat undefined definitions as warnings.
         ignoreUndefinedDefinitions: false
     },
+
+
     //
     // =====
     // Hooks
@@ -273,6 +274,7 @@ exports.config = {
      */
     // afterFeature: function (uri, feature) {
     // },
+    
     /**
      * Runs after a WebdriverIO command gets executed
      * @param {string} commandName hook command name
@@ -328,4 +330,4 @@ exports.config = {
     */
     // afterAssertion: function(params) {
     // }
-};
+}

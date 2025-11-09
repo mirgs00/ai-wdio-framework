@@ -1,7 +1,12 @@
 #!/usr/bin/env ts-node
 // Load environment variables from .env file
-import dotenv from 'dotenv';
-dotenv.config();
+let dotenv: any;
+try {
+  dotenv = require('dotenv');
+  dotenv.config();
+} catch {
+  console.warn('Warning: dotenv not fully loaded, continuing without .env support');
+}
 
 import { buildPageObjects } from './utils/test-gen/pageObjectBuilder';
 import { buildScenario } from './utils/test-gen/scenarioBuilder';
@@ -504,17 +509,14 @@ async function rerunFailedStepsWithHealing(): Promise<void> {
   try {
     await rerunFailedStepsService.executeRerun();
   } catch (error) {
-    console.error(
-      '❌ Failed step rerun error:',
-      error instanceof Error ? error.message : error
-    );
+    console.error('❌ Failed step rerun error:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 async function main() {
   const parsedArgs = parseArgs(process.argv.slice(2));
-  const shouldRunTests = !parsedArgs['no-run'];
+  const shouldRunTests = parsedArgs['run'] !== false;
   const shouldValidate = parsedArgs['validate'];
   const shouldRerun = parsedArgs['rerun'];
   const shouldRerunSteps = parsedArgs['rerun-steps'];
@@ -527,7 +529,7 @@ async function main() {
     testTimeout: InputValidator.validateTimeout(
       typeof parsedArgs['timeout'] === 'string' ? parsedArgs['timeout'] : undefined
     ),
-    screenshotOnFailure: !parsedArgs['no-screenshots'],
+    screenshotOnFailure: parsedArgs['screenshots'] !== false,
   };
 
   try {

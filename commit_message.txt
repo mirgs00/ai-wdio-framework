@@ -1,0 +1,8 @@
+Add code quality improvements
+
+- Add dotenv/config imports to key builders (scenarioBuilder, pageObjectBuilder, stepDefinitionBuilder)
+- Create utils/errors.ts with custom error classes (AiFrameworkError, ValidationError, URLError, etc.)
+- Create utils/validation.ts with InputValidator utility for URL, prompt, and timeout validation
+- Update CLI to use InputValidator for safer input handling
+- Install is-url and shell-quote dependencies
+- Add ESLint v9 configuration file (eslint.config.js)

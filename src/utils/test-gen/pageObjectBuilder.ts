@@ -1,5 +1,9 @@
 // src/utils/test-gen/pageObjectBuilder.ts
-import 'dotenv/config';
+try {
+  require('dotenv/config');
+} catch {
+  // dotenv may not be available
+}
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';

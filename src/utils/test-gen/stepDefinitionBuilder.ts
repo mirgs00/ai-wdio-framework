@@ -1,4 +1,8 @@
-import 'dotenv/config';
+try {
+  require('dotenv/config');
+} catch {
+  // dotenv may not be available
+}
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';

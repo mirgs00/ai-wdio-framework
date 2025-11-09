@@ -33,7 +33,8 @@ export function setupHealingHooks() {
       const sessionActive = await browser.getSession().catch(() => null);
 
       // Record failed step for rerun capability
-      const featureName = context.pickle?.uri?.split('/').pop()?.replace('.feature', '') || 'unknown';
+      const featureName =
+        context.pickle?.uri?.split('/').pop()?.replace('.feature', '') || 'unknown';
       const scenarioName = context.pickle?.name || 'unknown scenario';
 
       rerunFailedStepsService.recordFailedStep({

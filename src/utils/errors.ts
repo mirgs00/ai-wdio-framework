@@ -2,7 +2,11 @@ export class AiFrameworkError extends Error {
   readonly code: string;
   readonly context?: Record<string, unknown>;
 
-  constructor(message: string, code: string = 'FRAMEWORK_ERROR', context?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    code: string = 'FRAMEWORK_ERROR',
+    context?: Record<string, unknown>
+  ) {
     super(message);
     this.name = 'AiFrameworkError';
     this.code = code;

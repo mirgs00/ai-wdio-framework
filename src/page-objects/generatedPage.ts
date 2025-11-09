@@ -1,131 +1,49 @@
 // Auto-generated Page Object for: https://practicetestautomation.com/practice-test-login/
+// Generated from instructions: Test the login page with positive and negative credential flows
 import { $, browser } from '@wdio/globals';
 
 class GeneratedPage {
+
   /**
-   * Username
+   * Username input field
    */
   get username_input() {
     return $('#username');
   }
 
   /**
-   * Password
+   * Password input field
    */
   get password_input() {
     return $('#password');
   }
 
   /**
-   * Submit
+   * Submit button
    */
   get submit_button() {
     return $('#submit');
   }
 
   /**
-   * Link: Home
+   * Success message
    */
-  get home_link() {
-    return $('a[href="https://practicetestautomation.com/"]');
+  get success_text() {
+    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
   }
 
   /**
-   * Link: Practice
+   * Logged in success heading
    */
-  get practice_link() {
-    return $('a[href="https://practicetestautomation.com/practice/"]');
+  get loggedInHeading_text() {
+    return $('h1, h2, [class*="heading"], [class*="title"]');
   }
 
   /**
-   * Link: Courses
+   * Error message
    */
-  get courses_link() {
-    return $('a[href="https://practicetestautomation.com/courses/"]');
-  }
-
-  /**
-   * Link: Blog
-   */
-  get blog_link() {
-    return $('a[href="https://practicetestautomation.com/blog/"]');
-  }
-
-  /**
-   * Link: Contact
-   */
-  get contact_link() {
-    return $('a[href="https://practicetestautomation.com/contact/"]');
-  }
-
-  /**
-   * Link: Privacy Policy
-   */
-  get privacyPolicy_link() {
-    return $('a[href="https://practicetestautomation.com/privacy-policy/"]');
-  }
-
-  /**
-   * Heading (H2): Test login
-   */
-  get testLogin_heading() {
-    return $('h2');
-  }
-
-  /**
-   * Heading (H5): Test case 1: Positive LogIn test
-   */
-  get testCase1PositiveLogInTest_heading() {
-    return $('h5');
-  }
-
-  /**
-   * Error message: Your username is invalid!
-   */
-  get error_error() {
-    return $('#error');
-  }
-
-  /**
-   * Success message: Home
-Practice
-Courses
-Blog
-Contact
-
-							
-						
-   */
-  get overflowContainer_success() {
-    return $('#overflow-container');
-  }
-
-  /**
-   * Success message: Home
-Practice
-Courses
-Blog
-Contact
-
-							
-						
-   */
-  get maxWidth_success() {
-    return $('#max-width');
-  }
-
-  /**
-   * Text element: Test login
-   */
-  get test_login_text() {
-    return $('h2');
-  }
-
-  /**
-   * Text element: Test case 1: Positive LogIn test
-   */
-  get test_case_1_Positive_LogIn_te_text() {
-    return $('h5');
+  get error_text() {
+    return $('#error, [class*="error"], [id*="error"], [role="alert"], .alert-danger');
   }
 
   // Common actions

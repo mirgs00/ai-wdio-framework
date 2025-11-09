@@ -61,9 +61,7 @@ export class RerunFailedSteps {
 
     const existingIndex = failures.findIndex(
       (f) =>
-        f.feature === failure.feature &&
-        f.scenario === failure.scenario &&
-        f.step === failure.step
+        f.feature === failure.feature && f.scenario === failure.scenario && f.step === failure.step
     );
 
     if (existingIndex >= 0) {
@@ -194,9 +192,7 @@ export class RerunFailedSteps {
       this.clearFailureLog();
       console.log('✅ Rerun log cleared - all steps have been healed!');
     } catch (error) {
-      console.error(
-        `❌ Rerun workflow error: ${error instanceof Error ? error.message : error}`
-      );
+      console.error(`❌ Rerun workflow error: ${error instanceof Error ? error.message : error}`);
       logger.error('Rerun workflow failed', error as Error);
       throw error;
     }
@@ -252,9 +248,7 @@ export class RerunFailedSteps {
         throw error;
       }
     } catch (error) {
-      console.error(
-        `❌ Test rerun failed: ${error instanceof Error ? error.message : error}`
-      );
+      console.error(`❌ Test rerun failed: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
   }
