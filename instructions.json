@@ -11,7 +11,7 @@
         "User enters username 'student'",
         "User enters password 'Password123'",
         "User clicks login button",
-        "User sees page header containing text 'Logged In Successfully'"
+        "User sees logged In Heading with text containing 'Logged In Successfully'"
       ],
       "tags": ["happy-path", "positive"]
     },

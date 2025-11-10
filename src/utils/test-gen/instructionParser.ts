@@ -946,7 +946,11 @@ ${definitions}`;
       if (isErrorStep) {
         elementSelector = `${pageRefForVerify}.error_text || ${pageRefForVerify}.message_text`;
       } else if (isSuccessStep) {
-        elementSelector = `${pageRefForVerify}.success_text || ${pageRefForVerify}.message_text`;
+        if (gherkin_lower.includes('heading')) {
+          elementSelector = `${pageRefForVerify}.loggedInHeading_text`;
+        } else {
+          elementSelector = `${pageRefForVerify}.success_text || ${pageRefForVerify}.message_text`;
+        }
       }
 
       // If we have parameters (like expectedText), verify the content matches

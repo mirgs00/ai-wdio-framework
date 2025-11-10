@@ -64,11 +64,11 @@ When(/^the user clicks login button$/, async function () {
 });
 
 /**
- * the user sees page header containing text "Logged In Successfully"
+ * the user sees logged in heading with text containing "Logged In Successfully"
  */
-Then(/^the user sees page header containing text "([^"]*)"$/, async function (expectedText) {
+Then(/^the user sees logged in heading with text containing "([^"]*)"$/, async function (expectedText) {
   try {
-    const element = pageContextManager.getPage('dashboard').success_text || pageContextManager.getPage('dashboard').message_text;
+    const element = pageContextManager.getPage('dashboard').loggedInHeading_text;
     await expect(element).toBeDisplayed({ timeout: 5000 });
     const actualMessage = await element.getText();
     expect(actualMessage).toContain(expectedText);
