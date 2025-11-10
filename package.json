@@ -50,7 +50,7 @@
     "puppeteer": "^24.15.0"
   },
   "scripts": {
-    "wdio": "wdio run ./wdio.conf.js",
+    "wdio": "wdio run ./wdio.conf.ts",
     "generate": "npx ts-node src/cli.ts https://practicetestautomation.com/practice-test-login/ \"Test the login page with different type of credentials positive and negative flows\"",
     "android": "npx wdio configs/wdio.android.conf.ts",
     "ios": "npx wdio configs/wdio.ios.conf.ts",

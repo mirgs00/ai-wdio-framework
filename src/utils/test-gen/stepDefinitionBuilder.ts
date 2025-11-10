@@ -34,7 +34,7 @@ export const DEFAULT_PARAMETERS = {
   invalidPassword: 'wrongpass',
   usernameField: '#username',
   passwordField: '#password',
-  submit_button: 'button[type="submit"]',
+  submit_button: 'button[type=\"submit\"]',
   errorElement: '.error',
   successElement: '.post-title',
   contentElement: '.content',
@@ -49,11 +49,11 @@ async function generatePageObjectFile(): Promise<void> {
 /**
  * Normalizes step text for deduplication by replacing quoted values with placeholders
  * This helps identify steps with the same pattern but different parameter values
- * Example: "the user enters username \"student\"" -> "the user enters username \"<PARAM>\""
+ * Example: \"the user enters username \\\"student\\\"\" -> \"the user enters username \\\"<PARAM>\\\"\"
  */
 function normalizeStepForDedup(stepText: string): string {
   // Replace any quoted string (double or single) with a placeholder
-  return stepText.replace(/"[^"]*"/g, '"<PARAM>"').replace(/'[^']*'/g, "'<PARAM>'");
+  return stepText.replace(/\"[^\"]*\"/g, '\"<PARAM>\"').replace(/'[^']*'/g, "'<PARAM>'");
 }
 
 function extractStepsFromFeature(featureContent: string): string[] {
@@ -74,7 +74,7 @@ function extractStepsFromFeature(featureContent: string): string[] {
           steps.push(stepText);
           normalizedSteps.add(normalized);
         } else {
-          console.log(`ℹ️  Skipping duplicate step pattern: "${stepText}"`);
+          console.log(`ℹ️  Skipping duplicate step pattern: \"${stepText}\"`);
         }
       }
     }
@@ -119,7 +119,7 @@ function generateStepPattern(step: string): string {
 }
 
 function extractParameters(step: string): string[] {
-  const paramCount = (step.match(/"[^"]*"/g) || []).length;
+  const paramCount = (step.match(/\"[^\"]*\"/g) || []).length;
   const parameters: string[] = [];
 
   for (let i = 0; i < paramCount; i++) {
@@ -151,7 +151,7 @@ function getPageElements(): PageElementInfo[] {
     const elements: PageElementInfo[] = [];
 
     // Extract getter definitions
-    const getterRegex = /get\s+(\w+)\(\)\s*{\s*return\s+\$\(['"]([^'"]+)['"]\);?\s*}/g;
+    const getterRegex = /get\s+(\w+)\(\)\s*{\s*return\s+\$([\'\"]([^\'\"]+)[\'\"]);?\s*}/g;
     const commentRegex = /\/\*\*\s*\n\s*\*\s*(.+?)\s*\n\s*\*\//g;
 
     let match;
@@ -191,7 +191,7 @@ async function discoverScenariosWithOllama(
     // Extract key elements for scenario discovery
     const forms = $('form').length;
     const inputs = $('input, textarea, select').length;
-    const buttons = $('button, input[type="submit"]').length;
+    const buttons = $('button, input[type=\"submit\"]').length;
     const links = $('a[href]').length;
 
     const pageTitle = $('title').text() || 'Unknown Page';
@@ -201,30 +201,7 @@ async function discoverScenariosWithOllama(
       .slice(0, 5)
       .join(', ');
 
-    const prompt = `Analyze this web application and suggest test scenarios.
-
-Application Details:
-- URL: ${url}
-- Page Title: ${pageTitle}
-- Forms: ${forms}
-- Input Fields: ${inputs}
-- Buttons: ${buttons}
-- Links: ${links}
-- Page Headings: ${headings || 'None'}
-
-Based on this application structure, suggest 3-5 additional test scenarios that should be covered beyond the obvious ones. 
-Focus on:
-1. Edge cases and error conditions
-2. User workflow variations
-3. Validation scenarios
-4. Accessibility testing
-5. Boundary conditions
-
-Return ONLY a simple list of scenario titles (one per line), like:
-- Scenario: Test X
-- Scenario: Test Y
-
-Do NOT include Gherkin syntax, just the scenario descriptions.`;
+    const prompt = `Analyze this web application and suggest test scenarios.\n\nApplication Details:\n- URL: ${url}\n- Page Title: ${pageTitle}\n- Forms: ${forms}\n- Input Fields: ${inputs}\n- Buttons: ${buttons}\n- Links: ${links}\n- Page Headings: ${headings || 'None'}\n\nBased on this application structure, suggest 3-5 additional test scenarios that should be covered beyond the obvious ones. \nFocus on:\n1. Edge cases and error conditions\n2. User workflow variations\n3. Validation scenarios\n4. Accessibility testing\n5. Boundary conditions\n\nReturn ONLY a simple list of scenario titles (one per line), like:\n- Scenario: Test X\n- Scenario: Test Y\n\nDo NOT include Gherkin syntax, just the scenario descriptions.`;
 
     const response = await ollamaClient.generateText(prompt, {
       temperature: 0.5,
@@ -271,7 +248,7 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
       const formName = $(form).attr('name');
       const formAction = $(form).attr('action');
       elements.push(
-        `Form: ${formId ? `#${formId}` : formName ? `[name="${formName}"]` : 'form'}${formAction ? ` (action: ${formAction})` : ''}`
+        `Form: ${formId ? `#${formId}` : formName ? `[name=\"${formName}\"]` : 'form'}${formAction ? ` (action: ${formAction})` : ''}`
       );
     });
 
@@ -281,22 +258,22 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
       const name = $(input).attr('name');
       const type = $(input).attr('type') || 'text';
       const placeholder = $(input).attr('placeholder');
-      const label = $(input).attr('aria-label') || $(`label[for="${id}"]`).text().trim();
-      const selector = id ? `#${id}` : name ? `[name="${name}"]` : '';
+      const label = $(input).attr('aria-label') || $(`label[for=\"${id}\"]`).text().trim();
+      const selector = id ? `#${id}` : name ? `[name=\"${name}\"]` : '';
       if (selector) {
         elements.push(
-          `Input (${type}): ${selector}${placeholder ? ` (placeholder: "${placeholder}")` : ''}${label ? ` (label: "${label}")` : ''}`
+          `Input (${type}): ${selector}${placeholder ? ` (placeholder: \"${placeholder}\")` : ''}${label ? ` (label: \"${label}\")` : ''}`
         );
       }
     });
 
     // Extract buttons
-    $('button, input[type="submit"], input[type="button"]').each((_, btn) => {
+    $('button, input[type=\"submit\"], input[type=\"button\"]').each((_, btn) => {
       const id = $(btn).attr('id');
       const text = $(btn).text().trim() || $(btn).attr('value') || $(btn).attr('aria-label');
-      const selector = id ? `#${id}` : text ? `button:contains("${text}")` : 'button';
+      const selector = id ? `#${id}` : text ? `button:contains(\"${text}\")` : 'button';
       if (text) {
-        elements.push(`Button: ${selector} (text: "${text}")`);
+        elements.push(`Button: ${selector} (text: \"${text}\")`);
       }
     });
 
@@ -305,14 +282,14 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
       const id = $(link).attr('id');
       const text = $(link).text().trim();
       const href = $(link).attr('href');
-      const selector = id ? `#${id}` : text ? `a:contains("${text}")` : '';
+      const selector = id ? `#${id}` : text ? `a:contains(\"${text}\")` : '';
       if (text && text.length < 50) {
-        elements.push(`Link: ${selector} (text: "${text}", href: "${href}")`);
+        elements.push(`Link: ${selector} (text: \"${text}\", href: \"${href}\")`);
       }
     });
 
     // Extract error/success message containers
-    $('[class*="error"], [class*="success"], [class*="message"], [role="alert"]').each((_, el) => {
+    $('[class*=\"error\"], [class*=\"success\"], [class*=\"message\"], [role=\"alert\"]').each((_, el) => {
       const id = $(el).attr('id');
       const className = $(el).attr('class');
       const selector = id ? `#${id}` : className ? `.${className.split(' ')[0]}` : '';
@@ -454,54 +431,10 @@ async function generateStepImplementation(
   // Build element reference string
   const elementReferences =
     pageElements.length > 0
-      ? `\nAvailable Page Elements (use these selectors in your code):\n${pageElements.map((el) => `  - ${el.name}: selector "${el.selector}" (${el.description})`).join('\n')}\n`
+      ? `\nAvailable Page Elements (use these selectors in your code):\n${pageElements.map((el) => `  - ${el.name}: selector \"${el.selector}\" (${el.description})`).join('\n')}\n`
       : '';
 
-  const prompt = `You are an expert WebdriverIO test automation engineer. Generate ONLY the code implementation for this step.
-
-Step to implement: "${step}"
-Step Type: ${stepType}
-Function Parameters: ${parameters.length > 0 ? parameters.join(', ') : 'none'}
-${elementReferences}
-${applicationContext ? `\nApplication Context:\n${applicationContext}\n` : ''}
-
-CRITICAL RULES:
-1. Use WebdriverIO with async/await syntax
-2. Include try/catch error handling with descriptive messages
-3. Use the FUNCTION PARAMETERS (${parameters[0] || 'param1'}) directly - they are already passed to the function
-4. For selectors, PREFER using the page object: generatedPage.username_input, generatedPage.password_input, generatedPage.loginButton, generatedPage.loginForm
-5. For selectors not in page object, use actual element selectors (e.g., $('[class*="error"]'), $('button:contains("text")'))
-6. For URLs and config, use environment variables: process.env.LOGIN_URL, process.env.SUBMIT_BUTTON, etc.
-7. NEVER use DEFAULT_PARAMETERS - it doesn't exist in the generated file!
-8. Return ONLY the code implementation - no markdown, no explanations, no comments
-9. Validate all strings are properly terminated
-
-Example for "I navigate to login page":
-try {
-  await generatedPage.open();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Navigation failed: \${errorMessage}\`);
-}
-
-Example for "I enter username and password" (using page object):
-try {
-  await generatedPage.username_input.setValue(username);
-  await generatedPage.password_input.setValue(password);
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Form fill failed: \${errorMessage}\`);
-}
-
-Example for "I click the login button":
-try {
-  await generatedPage.loginButton.click();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Button click failed: \${errorMessage}\`);
-}
-
-Now generate the implementation for: "${step}"`;
+  const prompt = `You are an expert WebdriverIO test automation engineer. Generate ONLY the code implementation for this step.\n\nStep to implement: \"${step}\"\nStep Type: ${stepType}\nFunction Parameters: ${parameters.length > 0 ? parameters.join(', ') : 'none'}\n${elementReferences}\n${applicationContext ? `\nApplication Context:\n${applicationContext}\n` : ''}\n\nCRITICAL RULES:\n1. Use WebdriverIO with async/await syntax\n2. Include try/catch error handling with descriptive messages\n3. Use the FUNCTION PARAMETERS (${parameters[0] || 'param1'}) directly - they are already passed to the function\n4. For selectors, PREFER using the page object: generatedPage.username_input, generatedPage.password_input, generatedPage.loginButton, generatedPage.loginForm\n5. For selectors not in page object, use actual element selectors (e.g., $('[class*=\"error\"]'), $('button:contains(\"text\")'))\n6. For URLs and config, use environment variables: process.env.LOGIN_URL, process.env.SUBMIT_BUTTON, etc.\n7. NEVER use DEFAULT_PARAMETERS - it doesn't exist in the generated file!\n8. Return ONLY the code implementation - no markdown, no explanations, no comments\n9. Validate all strings are properly terminated\n\nExample for \"I navigate to login page\":\ntry {\n  await generatedPage.open();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Navigation failed: \\\${errorMessage}\\`);\n}\n\nExample for \"I enter username and password\" (using page object):\ntry {\n  await generatedPage.username_input.setValue(username);\n  await generatedPage.password_input.setValue(password);\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Form fill failed: \\\${errorMessage}\\`);\n}\n\nExample for \"I click the login button\":\ntry {\n  await generatedPage.loginButton.click();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Button click failed: \\\${errorMessage}\\`);\n}\n\nNow generate the implementation for: \"${step}\"`;
 
   try {
     let implementation = await generateWithRetry(prompt, ollamaClient, 3);
@@ -509,12 +442,12 @@ Now generate the implementation for: "${step}"`;
     // Final validation and wrapping
     const trimmed = implementation.trim();
     if (!trimmed.startsWith('try {')) {
-      implementation = `try {\n  ${trimmed}\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\`Step execution failed: \${errorMessage}\`);\n}`;
+      implementation = `try {\n  ${trimmed}\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Step execution failed: \\\${errorMessage}\\`);\n}`;
     }
 
     return implementation;
   } catch (error) {
-    console.warn(`⚠️ AI generation failed for "${step}": ${(error as Error).message}`);
+    console.warn(`⚠️ AI generation failed for \"${step}\": ${(error as Error).message}`);
     console.warn(`   → Using fallback implementation`);
     return generateFallbackImplementation(step, stepType, parameters, pageElements);
   }
@@ -535,69 +468,22 @@ function generateFallbackImplementation(
   ) {
     const urlParam = parameters[0] || 'url';
     if (lowerStep.includes('login')) {
-      return `try {
-  await generatedPage.open();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Navigation failed: \${errorMessage}\`);
-}`;
+      return `try {\n  await generatedPage.open();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Navigation failed: \\\${errorMessage}\\`);\n}`;
     }
-    return `try {
-  await browser.url(${urlParam});
-  await browser.waitUntil(
-    async () => (await browser.execute(() => document.readyState)) === 'complete',
-    { timeout: 10000, timeoutMsg: 'Page did not load' }
-  );
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Navigation failed: \${errorMessage}\`);
-}`;
+    return `try {\n  await browser.url(${urlParam});\n  await browser.waitUntil(\n    async () => (await browser.execute(() => document.readyState)) === 'complete',\n    { timeout: 10000, timeoutMsg: 'Page did not load' }\n  );\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Navigation failed: \\\${errorMessage}\\`);\n}`;
   }
 
   // Page Load Steps
   if (lowerStep.includes('wait for page load')) {
-    return `try {
-  await browser.waitUntil(
-    async () => (await browser.execute(() => document.readyState)) === 'complete',
-    { timeout: 10000, timeoutMsg: 'Page did not load' }
-  );
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Page load failed: \${errorMessage}\`);
-}`;
+    return `try {\n  await browser.waitUntil(\n    async () => (await browser.execute(() => document.readyState)) === 'complete',\n    { timeout: 10000, timeoutMsg: 'Page did not load' }\n  );\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Page load failed: \\\${errorMessage}\\`);\n}`;
   }
 
   // Click button by name (parameterized)
   if (lowerStep.includes('click the') && lowerStep.includes('button')) {
     const buttonParam = parameters[0] || 'buttonName';
-    return `try {
-  const name = ${buttonParam}.toLowerCase();
-  
-  // Map button names to page object getters
-  const buttonMap: { [key: string]: string } = {
-    'login': 'submit_button',
-    'submit': 'submit_button',
-    'sign in': 'submit_button',
-    'send': 'submit_button',
-    'menu': 'openMenu_button',
-    'open menu': 'openMenu_button',
-    'toggle': 'openMenu_button'
-  };
-  
-  const pageObjectGetter = buttonMap[name] || \`\${name}_button\`;
-  
-  if (name === 'back') {
-    await browser.back();
-  } else if (pageObjectGetter in generatedPage) {
-    await (generatedPage as any)[pageObjectGetter].click();
-  } else {
-    // Fallback: try to find button by text content
-    await $(\`button:contains("\${${buttonParam}}")\`).click();
-  }
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Button click failed: \${errorMessage}\`);
-}`;
+    return `try {\n  const name = ${buttonParam}.toLowerCase();\n  \n  // Map button names to page object getters\n  const buttonMap: { [key: string]: string } = {\n    'login': 'submit_button',\n    'submit': 'submit_button',\n    'sign in': 'submit_button',\n    'send': 'submit_button',\n    'menu': 'openMenu_button',\n    'open menu': 'openMenu_button',\n    'toggle': 'openMenu_button'\n  };\n  \n  const pageObjectGetter = buttonMap[name] || \
+\`${name}_button\
+`;\n  \n  if (name === 'back') {\n    await browser.back();\n  } else if (pageObjectGetter in generatedPage) {\n    await (generatedPage as any)[pageObjectGetter].click();\n  } else {\n    // Fallback: try to find button by text content\n    await $(\\`button:contains(\"\\${${buttonParam}}\")\\`).click();\n  }\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Button click failed: \\\${errorMessage}\\`);\n}`;
   }
 
   // Form Submission - use actual page elements if available
@@ -630,95 +516,49 @@ function generateFallbackImplementation(
       : 'DEFAULT_PARAMETERS.passwordField';
     const submitSelector = submitEl ? `'${submitEl.selector}'` : 'DEFAULT_PARAMETERS.submit_button';
 
-    return `try {
-  await $(${usernameSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidUsername' : 'DEFAULT_PARAMETERS.username'});
-  await $(${passwordSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidPassword' : 'DEFAULT_PARAMETERS.password'});
-  await $(${submitSelector}).click();
-  ${isInvalid ? 'await expect($(DEFAULT_PARAMETERS.errorElement)).toBeDisplayed();' : 'await expect($(DEFAULT_PARAMETERS.successElement)).toBeDisplayed();'}
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Form submission failed: \${errorMessage}\`);
-}`;
+    return `try {\n  await $(${usernameSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidUsername' : 'DEFAULT_PARAMETERS.username'});\n  await $(${passwordSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidPassword' : 'DEFAULT_PARAMETERS.password'});\n  await $(${submitSelector}).click();\n  ${isInvalid ? 'await expect($(DEFAULT_PARAMETERS.errorElement)).toBeDisplayed();' : 'await expect($(DEFAULT_PARAMETERS.successElement)).toBeDisplayed();'}\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Form submission failed: \\\${errorMessage}\\`);\n}`;
   }
 
   // URL Verification
   if (lowerStep.includes('url should contain')) {
     const pathParam = parameters[0] || 'expectedPath';
-    return `try {
-  const currentUrl = await browser.getUrl();
-  await expect(currentUrl).toContain(${pathParam});
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`URL verification failed: \${errorMessage}\`);
-}`;
+    return `try {\n  const currentUrl = await browser.getUrl();\n  await expect(currentUrl).toContain(${pathParam});\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`URL verification failed: \\\${errorMessage}\\`);\n}`;
   }
 
   // Visibility Checks
   if (lowerStep.includes('should see') || lowerStep.includes('verify')) {
-    let selector = '[class*="success"]';
+    let selector = '[class*=\"success\"]';
     if (lowerStep.includes('error')) {
-      selector = '[class*="error"]';
+      selector = '[class*=\"error\"]';
     } else if (lowerStep.includes('success')) {
-      selector = '[class*="success"]';
+      selector = '[class*=\"success\"]';
     }
-    return `try {
-  await expect($(\`${selector}\`)).toBeDisplayed();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Element not visible: \${errorMessage}\`);
-}`;
+    return `try {\n  await expect($(\\`${selector}\\`)).toBeDisplayed();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Element not visible: \\\${errorMessage}\\`);\n}`;
   }
 
   // Success message check
   if (lowerStep.includes('success message')) {
-    return `try {
-  const successElement = $('[class*="success"]');
-  await expect(successElement).toBeDisplayed();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Success message not visible: \${errorMessage}\`);
-}`;
+    return `try {\n  const successElement = $('[class*=\"success\"]');\n  await expect(successElement).toBeDisplayed();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Success message not visible: \\\${errorMessage}\\`);\n}`;
   }
 
   // Form should not be submitted
   if (lowerStep.includes('form should not be submitted')) {
-    return `try {
-  await expect(generatedPage.loginButton).not.toBeEnabled();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Form submission not prevented: \${errorMessage}\`);
-}`;
+    return `try {\n  await expect(generatedPage.loginButton).not.toBeEnabled();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Form submission not prevented: \\\${errorMessage}\\`);\n}`;
   }
 
   // Redirected to success page
   if (lowerStep.includes('redirected to') || lowerStep.includes('should be redirected')) {
-    return `try {
-  const currentUrl = await browser.getUrl();
-  await expect(currentUrl).toContain(process.env.SUCCESS_URL);
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Failed to redirect to success page: \${errorMessage}\`);
-}`;
+    return `try {\n  const currentUrl = await browser.getUrl();\n  await expect(currentUrl).toContain(process.env.SUCCESS_URL);\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Failed to redirect to success page: \\\${errorMessage}\\`);\n}`;
   }
 
   // Main page content visible
   if (lowerStep.includes('main page content should be visible')) {
-    return `try {
-  await expect(generatedPage.loginForm).toBeDisplayed();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Main page content not visible: \${errorMessage}\`);
-}`;
+    return `try {\n  await expect(generatedPage.loginForm).toBeDisplayed();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Main page content not visible: \\\${errorMessage}\\`);\n}`;
   }
 
   // Validation errors
   if (lowerStep.includes('validation errors')) {
-    return `try {
-  await expect($('[class*="error"]')).toBeDisplayed();
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Validation errors not visible: \${errorMessage}\`);
-}`;
+    return `try {\n  await expect($('[class*=\"error\"]')).toBeDisplayed();\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Validation errors not visible: \\\${errorMessage}\\`);\n}`;
   }
 
   // Page header or success message with text verification
@@ -729,41 +569,11 @@ function generateFallbackImplementation(
     lowerStep.includes('containing text')
   ) {
     const textParam = parameters[0] || 'expectedText';
-    return `try {
-  // Try to find the element in dashboard page first
-  let element;
-  if (typeof dashboardPage !== 'undefined' && dashboardPage) {
-    // Try to find any property that looks like a success/heading/text element
-    const dashboardProps = Object.getOwnPropertyNames(Object.getPrototypeOf(dashboardPage));
-    const successProp = dashboardProps.find((prop: string) => 
-      prop.includes('success') || prop.includes('heading') || prop.includes('text')
-    );
-    if (successProp && (dashboardPage as any)[successProp]) {
-      element = (dashboardPage as any)[successProp];
-    }
-  }
-  
-  // Fallback to a CSS selector
-  if (!element) {
-    element = $('h1.post-title, [class*="success"], [class*="message"], [role="status"]');
-  }
-  
-  await expect(element).toBeDisplayed({ timeout: 5000 });
-  const actualText = await element.getText();
-  expect(actualText).toContain(${textParam});
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Failed to verify message: \${errorMessage}\`);
-}`;
+    return `try {\n  // Try to find the element in dashboard page first\n  let element;\n  if (typeof dashboardPage !== 'undefined' && dashboardPage) {\n    // Try to find any property that looks like a success/heading/text element\n    const dashboardProps = Object.getOwnPropertyNames(Object.getPrototypeOf(dashboardPage));\n    const successProp = dashboardProps.find((prop: string) => \n      prop.includes('success') || prop.includes('heading') || prop.includes('text')\n    );\n    if (successProp && (dashboardPage as any)[successProp]) {\n      element = (dashboardPage as any)[successProp];\n    }\n  }\n  \n  // Fallback to a CSS selector\n  if (!element) {\n    element = $('h1.post-title, [class*=\"success\"], [class*=\"message\"], [role=\"status\"]');\n  }\n  \n  await expect(element).toBeDisplayed({ timeout: 5000 });\n  const actualText = await element.getText();\n  expect(actualText).toContain(${textParam});\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Failed to verify message: \\\${errorMessage}\\`);\n}`;
   }
 
   // Default fallback
-  return `try {
-  await browser.pause(1000);
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(\`Step implementation missing for: ${step}\`);
-}`;
+  return `try {\n  await browser.pause(1000);\n} catch (error) {\n  const errorMessage = error instanceof Error ? error.message : String(error);\n  throw new Error(\\`Step implementation missing for: ${step}\\`);\n}`;
 }
 
 /**
@@ -782,7 +592,7 @@ function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
     } else {
       // If pattern already exists, keep the existing one (which was first encountered)
       const existingStep = seenPatterns.get(key);
-      const message = `⚠️  Skipping duplicate pattern: ${step.type}(/${step.pattern}/) for "${step.originalText}" (already exists for "${existingStep?.originalText}")`;
+      const message = `⚠️  Skipping duplicate pattern: ${step.type}(/${step.pattern}/) for \"${step.originalText}\" (already exists for \"${existingStep?.originalText}\")`;
       duplicateLogs.push(message);
       console.log(message);
     }
@@ -799,39 +609,14 @@ function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
 }
 
 function generateStepDefinitionsFile(stepDefinitions: StepDefinition[]): string {
-  const imports = `import { Given, When, Then } from "@wdio/cucumber-framework";
-import { expect, browser, $ } from '@wdio/globals';
-import dotenv from 'dotenv';
-
-// Import available page objects
-let loginPage: any, dashboardPage: any, errorPage: any, generatedPage: any;
-try { loginPage = require('../page-objects/generatedLoginPage').default; } catch (e) {}
-try { dashboardPage = require('../page-objects/generatedDashboardPage').default; } catch (e) {}
-try { errorPage = require('../page-objects/generatedErrorPage').default; } catch (e) {}
-try { generatedPage = require('../page-objects/generatedPage').default; } catch (e) {}
-
-dotenv.config();
-
-/**
- * AUTO-GENERATED STEP DEFINITIONS
- * This file is automatically generated and deduplicated to prevent step pattern conflicts.
- * Each step pattern is unique to ensure proper Cucumber matching.
- * Supports multiple page objects: loginPage, dashboardPage, errorPage, generatedPage
- */
-
-`;
+  const imports = `import { Given, When, Then } from \"@wdio/cucumber-framework\";\nimport { expect, browser, $ } from '@wdio/globals';\nimport dotenv from 'dotenv';\n\n// Import available page objects\nlet loginPage: any, dashboardPage: any, errorPage: any, generatedPage: any;\ntry { loginPage = require('../page-objects/generatedLoginPage').default; } catch (e) {}\ntry { dashboardPage = require('../page-objects/generatedDashboardPage').default; } catch (e) {}\ntry { errorPage = require('../page-objects/generatedErrorPage').default; } catch (e) {}\ntry { generatedPage = require('../page-objects/generatedPage').default; } catch (e) {}\n\ndotenv.config();\n\n/**\n * AUTO-GENERATED STEP DEFINITIONS\n * This file is automatically generated and deduplicated to prevent step pattern conflicts.\n * Each step pattern is unique to ensure proper Cucumber matching.\n * Supports multiple page objects: loginPage, dashboardPage, errorPage, generatedPage\n */\n\n`;
 
   // Deduplicate steps before generating
   const deduplicatedSteps = deduplicateSteps(stepDefinitions);
 
   const steps = deduplicatedSteps
     .map((step) => {
-      return `/**
- * Implements: "${step.originalText.replace(/"/g, '\\"')}"
- */
-${step.type}(/${step.pattern}/, async function (${step.parameters.join(', ')}) {
-${step.implementation}
-});`;
+      return `/**\n * Implements: \"${step.originalText.replace(/\"/g, '\\\"')}\"\n */\n${step.type}(/${step.pattern}/, async function (${step.parameters.join(', ')}) {\n${step.implementation}\n});`;
     })
     .join('\n\n');
 
@@ -889,73 +674,8 @@ export async function buildStepDefinitions(
     } catch (error) {
       console.warn(
         '⚠️ Could not analyze application context:',
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : String(error)
       );
     }
-  }
-
-  console.log(`📋 Generating implementations for ${steps.length} steps...`);
-
-  // Check Ollama health before processing steps
-  const ollamaHealthy = await ollamaClient.checkHealth();
-  if (!ollamaHealthy) {
-    console.warn('\n⚠️  ═══════════════════════════════════════════════════════════════');
-    console.warn('⚠️  WARNING: Ollama service is not accessible');
-    console.warn('⚠️  ═══════════════════════════════════════════════════════════════');
-    console.warn('⚠️  AI-powered step generation is DISABLED');
-    console.warn('⚠️  Using fallback basic step implementations instead');
-    console.warn('⚠️  ');
-    console.warn('⚠️  To enable AI features, start Ollama:');
-    console.warn('⚠️    1. npm run ollama:start       (in another terminal)');
-    console.warn("⚠️    2. npm run ollama:check       (verify it's running)");
-    console.warn('⚠️    3. Re-run generation command');
-    console.warn('⚠️  ═══════════════════════════════════════════════════════════════\n');
-  } else {
-    console.log('✅ Ollama service is healthy - AI-powered step generation ENABLED\n');
-  }
-
-  for (const step of steps) {
-    console.log(`⚙️ Processing step: "${step}"`);
-    const stepType = determineStepType(step);
-    const pattern = generateStepPattern(step);
-    const parameters = extractParameters(step);
-
-    const implementation = await generateStepImplementation(
-      step,
-      stepType,
-      parameters,
-      ollamaClient,
-      {
-        pageElements,
-        applicationContext,
-        url,
-      }
-    );
-
-    stepDefinitions.push({
-      type: stepType,
-      pattern,
-      implementation,
-      originalText: step,
-      parameters,
-    });
-  }
-
-  // Count unique patterns before deduplication
-  const uniquePatterns = new Set(stepDefinitions.map((s) => `${s.type}:${s.pattern}`)).size;
-
-  const stepDefinitionsCode = generateStepDefinitionsFile(stepDefinitions);
-  writeFileSync(GENERATED_STEPS_FILE, stepDefinitionsCode, 'utf-8');
-
-  const duplicateCount = stepDefinitions.length - uniquePatterns;
-  console.log(
-    `✅ Successfully generated ${uniquePatterns} unique step definitions${duplicateCount > 0 ? ` (${duplicateCount} duplicates removed)` : ''}`
-  );
-
-  const validation = stepQualityValidator.validateAllSteps(stepDefinitionsCode);
-  console.log(`📝 Step Quality Score: ${validation.score}/100`);
-  if (validation.warnings.length > 0) {
-    console.log('⚠️ Warnings:');
-    validation.warnings.slice(0, 3).forEach((w) => console.log(`   - ${w}`));
   }
 }

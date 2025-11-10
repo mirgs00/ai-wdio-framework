@@ -70,6 +70,15 @@ Then(/^the user sees logged in heading with text containing "([^"]*)"$/, async f
   try {
     const element = pageContextManager.getPage('dashboard').loggedInHeading_text;
     await expect(element).toBeDisplayed({ timeout: 5000 });
+
+    await browser.waitUntil(
+      async () => (await element.getText()).length > 0,
+      {
+        timeout: 5000,
+        timeoutMsg: 'Expected element to have text, but it was empty after 5s',
+      }
+    );
+
     const actualMessage = await element.getText();
     expect(actualMessage).toContain(expectedText);
   } catch (error) {
@@ -142,4 +151,3 @@ Then(/^the user sees error message that password is required$/, async function (
     throw new Error(`Failed to verify message: ${error}`);
   }
 });
-
