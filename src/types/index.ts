@@ -98,13 +98,19 @@ export interface FrameworkConfig {
 }
 
 export interface AIClientConfig {
-  baseUrl: string;
-  model: string;
-  timeout: number;
-  maxRetries: number;
-  retryDelayMs: number;
+  baseUrl?: string;
+  model?: string;
+  timeout?: number;
+  maxRetries?: number;
+  retryDelayMs?: number;
 }
 
+export interface TestGenerationConfig {
+  ollamaModel?: string;
+  ollamaBaseUrl?: string;
+  testTimeout?: number;
+  screenshotOnFailure?: boolean;
+}
 export interface OllamaResponse {
   model: string;
   response: string;

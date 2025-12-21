@@ -385,7 +385,7 @@ function generatePageObjectFile(elements: PageElement[], url: string): string {
       return `  /**
    * ${el.description}
    */
-  get ${el.name}() {
+  public get ${el.name}(): ChainablePromiseElement<WebdriverIO.Element> {
     return $('${el.selector.replace(/'/g, "\\'")}');
   }`;
     })
@@ -393,17 +393,18 @@ function generatePageObjectFile(elements: PageElement[], url: string): string {
 
   return `// Auto-generated Page Object for: ${url}
 import { $, browser } from '@wdio/globals';
+import { ChainablePromiseElement } from 'webdriverio';
 
 class GeneratedPage {
 ${elementsCode}
 
   // Common actions
-  async open() {
+  async open(): Promise<void> {
     await browser.url('${url.replace(/'/g, "\\'")}');
     await this.waitForPageLoad();
   }
 
-  async waitForPageLoad() {
+  async waitForPageLoad(): Promise<void> {
     await browser.waitUntil(
       async () => (await browser.execute(() => document.readyState)) === 'complete',
       { timeout: 15000, timeoutMsg: 'Page did not load' }
@@ -411,5 +412,7 @@ ${elementsCode}
   }
 }
 
-export default new GeneratedPage();`;
+export const generatedPage = new GeneratedPage();
+export default GeneratedPage;`;
 }
+

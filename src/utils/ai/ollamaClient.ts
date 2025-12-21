@@ -114,6 +114,9 @@ export class OllamaClient {
     const url = `${this.ollamaClientBaseUrl}/api/generate`;
     const mergedOptions = { ...this.defaultOptions, ...options };
 
+    console.log(`🔄 Making Ollama API call to: ${url}`);
+    console.log(`📝 Prompt length: ${prompt.length} characters`);
+
     const bodyPayload = {
       model: this.model,
       prompt,
@@ -144,30 +147,28 @@ export class OllamaClient {
 
       clearTimeout(timeoutId);
       const duration = Date.now() - startTime;
+      
+      console.log(`✅ Ollama response received in ${duration}ms`);
       logger.recordMetric('ollama_api_call', duration);
 
       if (!response.ok) {
         const errorBody = await response.text();
         const errorMsg = `Ollama API error: ${response.status} ${response.statusText}`;
+        console.error(`❌ ${errorMsg}`, errorBody);
         logger.error(errorMsg, new Error(errorBody));
         throw new Error(errorMsg);
       }
 
       const data = (await response.json()) as OllamaResponse;
+      console.log(`📤 Generated response length: ${data.response.length} characters`);
       logger.logOllamaResponse(data.response, this.model, duration);
       return data.response;
     } catch (error: unknown) {
       clearTimeout(timeoutId);
+      console.error(`❌ Ollama API call failed:`, error);
 
       if (error instanceof AbortError) {
         throw new Error(`Ollama API timeout after ${this.timeout}ms`);
-      }
-
-      if (error instanceof Error && 'code' in error && error.code === 'ECONNREFUSED') {
-        throw new Error(`Ollama connection refused. Please ensure:
-1. Ollama is running (try 'ollama serve')
-2. Service is accessible at ${this.ollamaClientBaseUrl}
-3. No firewall is blocking the connection`);
       }
 
       throw error instanceof Error ? error : new Error(String(error));

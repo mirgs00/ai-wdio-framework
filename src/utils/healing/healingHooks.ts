@@ -29,22 +29,42 @@ export function setupHealingHooks() {
       const errorMessage = context.result?.message || 'Unknown error';
       const stepText = context.pickle?.steps?.[0]?.text || currentStepText;
       const currentPageName = getCurrentPageName();
-      const currentUrl = await browser.getUrl();
-      const sessionActive = await browser.getSession().catch(() => null);
+      
+      // Safe URL retrieval with fallback
+      let currentUrl = 'unknown';
+      try {
+        currentUrl = await browser.getUrl();
+      } catch (error) {
+        console.warn('⚠️ Could not retrieve current URL:', error instanceof Error ? error.message : error);
+      }
+      
+      // Safe session check with proper error handling
+      let sessionActive = false;
+      try {
+        const session = await browser.getSession();
+        sessionActive = !!session;
+      } catch (error) {
+        console.warn('⚠️ Browser session check failed:', error instanceof Error ? error.message : error);
+        sessionActive = false;
+      }
 
       // Record failed step for rerun capability
       const featureName =
         context.pickle?.uri?.split('/').pop()?.replace('.feature', '') || 'unknown';
       const scenarioName = context.pickle?.name || 'unknown scenario';
 
-      rerunFailedStepsService.recordFailedStep({
-        feature: featureName,
-        scenario: scenarioName,
-        step: stepText,
-        url: currentUrl,
-        errorMessage,
-        pageName: currentPageName,
-      });
+      try {
+        rerunFailedStepsService.recordFailedStep({
+          feature: featureName,
+          scenario: scenarioName,
+          step: stepText,
+          url: currentUrl,
+          errorMessage,
+          pageName: currentPageName,
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to record step for rerun:', error instanceof Error ? error.message : error);
+      }
 
       // Skip healing if already attempted in this scenario
       if (healingAttempted) {

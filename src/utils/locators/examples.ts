@@ -260,7 +260,7 @@ class TodoAppPageExample extends SmartPageObject {
         const todoItems = await browser.$$(
           'xpath=//*[contains(text(), "' + todoText + '")]/../button'
         );
-        if (todoItems.length > 0) {
+        if ((todoItems as any).length > 0) {
           await todoItems[0].click();
         }
       },
@@ -391,7 +391,7 @@ class AdminPageExample extends BasePage {
       const deleteButtons = await browser.$$(
         `xpath=//*[contains(text(), "${email}")]/..//button[contains(text(), "Delete")]`
       );
-      if (deleteButtons.length > 0) {
+      if ((deleteButtons as any).length > 0) {
         await deleteButtons[0].click();
         await this.smartClick({ text: 'Confirm Delete' });
       }

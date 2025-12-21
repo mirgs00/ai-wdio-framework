@@ -3,7 +3,7 @@
  * Basic tests to verify Smart Locator functionality
  */
 
-import { SmartLocator, ElementDescription } from './smartLocator';
+import { SmartLocator, ElementDescription, LocatorStrategy } from './smartLocator';
 
 describe('SmartLocator', () => {
   let smartLocator: SmartLocator;
@@ -27,15 +27,15 @@ describe('SmartLocator', () => {
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.some((s) => s.type === 'text')).toBe(true);
-      expect(strategies.some((s) => s.type === 'aria')).toBe(true);
+      expect(strategies.some((s: LocatorStrategy) => s.type === 'text')).toBe(true);
+      expect(strategies.some((s: LocatorStrategy) => s.type === 'aria')).toBe(true);
     });
 
     test('should prioritize ID selector highest', async () => {
       const description: ElementDescription = { text: 'Button' };
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
 
-      const idStrategy = strategies.find((s) => s.type === 'id');
+      const idStrategy = strategies.find((s: LocatorStrategy) => s.type === 'id');
       expect(idStrategy?.priority).toBeGreaterThan(90);
     });
 
@@ -44,7 +44,7 @@ describe('SmartLocator', () => {
       const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.every((s) => s.selector)).toBe(true);
+      expect(strategies.every((s: LocatorStrategy) => s.selector)).toBe(true);
     });
   });
 
@@ -128,7 +128,7 @@ describe('SmartLocator', () => {
 
       expect(selector).toContain('Search');
       expect(selector).toContain('searchbox');
-      expect(selector).toContain('xpath');
+      expect(selector).toContain('//*');
     });
 
     test('should generate fuzzy XPath', () => {
@@ -140,7 +140,7 @@ describe('SmartLocator', () => {
       const selector = (smartLocator as any).generateFuzzyXPath(desc);
 
       expect(selector).toContain('normalize-space');
-      expect(selector).toContain('xpath') || expect(selector).toContain('//');
+      expect(selector.includes('xpath') || selector.includes('//')).toBe(true);
     });
   });
 
@@ -152,7 +152,7 @@ describe('SmartLocator', () => {
         ariaLabel: 'Save',
       };
 
-      const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
+      const strategies = await (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       for (let i = 0; i < strategies.length - 1; i++) {
         expect(strategies[i].priority).toBeGreaterThanOrEqual(strategies[i + 1].priority);
@@ -164,10 +164,10 @@ describe('SmartLocator', () => {
     test('should handle empty element description', async () => {
       const description: ElementDescription = {};
 
-      const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
+      const strategies = await (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.some((s) => s.selector.length > 0)).toBe(true);
+      expect(strategies.some((s: LocatorStrategy) => s.selector.length > 0)).toBe(true);
     });
   });
 
@@ -204,9 +204,16 @@ describe('SmartLocator Integration', () => {
   });
 
   test('should support re-export from index', () => {
-    const { SmartLocator: SmartLocatorClass, smartLocator: instance } = require('./index');
+    try {
+      const index = require('./index');
+      // console.log('Index exports:', Object.keys(index));
+      const { SmartLocator: SmartLocatorClass, smartLocator: instance } = index;
 
-    expect(SmartLocatorClass).toBeDefined();
-    expect(instance).toBeDefined();
+      expect(SmartLocatorClass).toBeDefined();
+      expect(instance).toBeDefined();
+    } catch (e) {
+      console.error('Error requiring index:', e);
+      throw e;
+    }
   });
 });

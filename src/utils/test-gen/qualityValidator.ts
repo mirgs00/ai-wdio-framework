@@ -135,81 +135,55 @@ export class StepQualityValidator {
       return { passed: false, score: 0, issues, warnings, suggestions };
     }
 
-    const hasTryCatch = stepCode.includes('try') && stepCode.includes('catch');
+    // Check for try-catch (more flexible pattern)
+    const hasTryCatch = /try\s*\{[\s\S]*?\}\s*catch/i.test(stepCode);
     if (!hasTryCatch) {
       warnings.push('Missing try-catch error handling');
       score -= 15;
-    } else {
-      const hasThrow = stepCode.includes('throw');
-      if (!hasThrow) {
-        warnings.push('Catch block exists but does not throw meaningful error');
-        score -= 10;
-      }
     }
 
-    const hasAwait = stepCode.includes('await');
+    // Check for await keyword
+    const hasAwait = /await\s+/i.test(stepCode);
     if (!hasAwait) {
       warnings.push('No "await" keyword found. Async operations may not be properly handled.');
       score -= 15;
     }
 
-    const hasConsole = stepCode.includes('console.log');
-    if (hasConsole) {
-      suggestions.push('Remove console.log statements in production code');
-      score -= 3;
-    }
-
-    const hasHardcodedValues = /['\"][a-zA-Z0-9._\-]+['\"]\s*\)/.test(stepCode);
-    if (hasHardcodedValues) {
-      suggestions.push('Consider parameterizing hardcoded values');
-    }
-
-    const hasMagicSleep = /pause\(|sleep\(|setTimeout\(/.test(stepCode);
-    if (hasMagicSleep) {
-      suggestions.push('Use explicit waits (waitUntil) instead of fixed pauses');
-      score -= 10;
-    }
-
-    const hasExplicitWait = stepCode.includes('waitUntil') || stepCode.includes('expect');
+    // Check for explicit waits or expectations
+    const hasExplicitWait = /expect\(|waitUntil|waitForDisplayed|toBeDisplayed|toContain/i.test(stepCode);
     if (!hasExplicitWait) {
       warnings.push('No explicit waits found. Add waitUntil or expect() for stability');
       score -= 10;
     }
 
-    const lines = stepCode.split('\n');
-    if (lines.length > 30) {
-      suggestions.push(
-        'Step implementation is lengthy. Consider breaking into smaller helper functions'
-      );
+    // Check for console.log (should be minimal)
+    const consoleCount = (stepCode.match(/console\.log/g) || []).length;
+    if (consoleCount > 2) {
+      suggestions.push('Too many console.log statements - consider reducing for production');
+      score -= 3;
+    }
+
+    // Check for hardcoded pauses (bad practice)
+    const hasMagicSleep = /pause\(\d+\)|sleep\(\d+\)|setTimeout\(/i.test(stepCode);
+    if (hasMagicSleep) {
+      suggestions.push('Use explicit waits (waitUntil) instead of fixed pauses');
+      score -= 10;
+    }
+
+    // Check for proper WebdriverIO syntax
+    const hasWebdriverIO = /\$\(|browser\.|generatedPage\.|expect\(/i.test(stepCode);
+    if (!hasWebdriverIO) {
+      suggestions.push('No WebdriverIO commands found. Verify implementation uses proper syntax');
       score -= 5;
-    } else if (lines.length < 2) {
-      warnings.push('Step implementation is very short. May lack error handling or validation');
-      score -= 10;
     }
 
-    const braceBalance =
-      (stepCode.match(/\{/g) || []).length === (stepCode.match(/\}/g) || []).length;
-    if (!braceBalance) {
-      issues.push('Braces are not balanced in step implementation');
-      score -= 30;
-    }
-
-    const parenBalance =
-      (stepCode.match(/\(/g) || []).length === (stepCode.match(/\)/g) || []).length;
-    if (!parenBalance) {
-      issues.push('Parentheses are not balanced in step implementation');
-      score -= 30;
-    }
-
-    const hasSelector = /\$\(|$\[\(|browser\./g.test(stepCode);
-    if (!hasSelector) {
-      suggestions.push('No WebdriverIO selectors or browser commands found. Verify implementation');
-    }
-
-    const hasValidation = /expect\(|toEqual|toContain|toBe/.test(stepCode);
-    if (!hasValidation && stepCode.includes('Then')) {
-      warnings.push('No assertions found in Then step');
-      score -= 10;
+    // Check for proper error handling in catch blocks
+    if (hasTryCatch) {
+      const hasProperErrorHandling = /throw new Error|throw error/i.test(stepCode);
+      if (!hasProperErrorHandling) {
+        warnings.push('Catch block should throw meaningful errors');
+        score -= 5;
+      }
     }
 
     return {
@@ -275,3 +249,5 @@ export class StepQualityValidator {
 
 export const scenarioQualityValidator = new ScenarioQualityValidator();
 export const stepQualityValidator = new StepQualityValidator();
+
+

@@ -7,7 +7,7 @@ Scenario: Successful Login
   When the user enters username "student"
   When the user enters password "Password123"
   When the user clicks login button
-  Then the user sees logged in heading with text containing "Logged In Successfully"
+  Then the user sees logged in h1 heading containing text "Logged In Successfully"
 
 @negative
 Scenario: Failed Login

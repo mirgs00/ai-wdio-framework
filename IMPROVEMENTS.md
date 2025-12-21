@@ -58,10 +58,10 @@ This document outlines identified improvements across the AI-WDIO Framework code
 
 ## 🟢 Architecture & Design Improvements
 
-### 11. Separation of Concerns
-- **Issue**: CLI logic mixed with business logic
-- **Location**: `src/cli.ts`
-- **Fix**: Extract core logic to separate service classes
+### 11. Separation of Concerns ✅ FIXED
+- **Status**: RESOLVED - Core logic extracted to service classes
+- **Previous Issue**: CLI logic mixed with business logic
+- **Resolution**: Created `TestGenerationService`, `TestRunnerService`, `SelectorValidationService` and refactored `cli.ts`
 
 ### 12. Configuration Management
 - **Issue**: Configuration scattered across files

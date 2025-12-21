@@ -1024,6 +1024,15 @@ ${definitions}`;
       pageContextManager,
     };
   }
+
+  getValidCredentials(): { username: string; password: string } {
+    return {
+      username: process.env.USERNAME || 'student',
+      password: process.env.PASSWORD || 'Password123',
+    };
+  }
 }
 
 export default new InstructionParser();
+
+

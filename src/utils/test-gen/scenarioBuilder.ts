@@ -9,11 +9,13 @@ import { OllamaClient } from '../ai/ollamaClient';
 import { analyzeDOM } from '../dom/domAnalyzer';
 import { promptTemplateManager } from '../ai/promptTemplates';
 import { scenarioClassifier } from './scenarioClassifier';
-import { scenarioQualityValidator } from './qualityValidator';
-import { buildStepDefinitions, DEFAULT_PARAMETERS } from './stepDefinitionBuilder';
+import { ScenarioQualityValidator } from './qualityValidator';
+import { buildStepDefinitions, generateStepDefinitions, DEFAULT_PARAMETERS } from './stepDefinitionBuilder';
 import fs from 'fs';
 import path from 'path';
 import { load } from 'cheerio';
+
+const scenarioQualityValidator = new ScenarioQualityValidator();
 
 /**
  * Builds a complete test scenario based on a URL and user instruction.
@@ -117,7 +119,17 @@ export async function buildScenario(url: string, instruction: string): Promise<s
 
   console.log('\n📋 Generating step definitions...');
   try {
-    await buildStepDefinitions(sanitizedFeatureContent, url, featureContentRaw);
+    // Parse the feature content to extract scenarios and steps
+    const scenarios = parseFeatureContent(sanitizedFeatureContent);
+    
+    // Generate step definitions from the parsed scenarios
+    const stepDefs = await generateStepDefinitions(scenarios, ollamaClient, {
+      url,
+      applicationContext: featureContentRaw
+    });
+    
+    // Build the step definitions file
+    await buildStepDefinitions(stepDefs);
   } catch (error) {
     console.warn(
       `⚠️ Failed to generate step definitions: ${error instanceof Error ? error.message : error}`
@@ -178,80 +190,67 @@ function generateFileName(url: string): string {
 }
 
 function createEnhancedFallbackFeature(pageAnalysis: any, instruction: string): string {
-  const url = pageAnalysis.title || 'Page';
-  const hasForm = pageAnalysis.forms.length > 0;
-  const hasInputs = pageAnalysis.inputFields.length > 0;
-  const mainFunc = pageAnalysis.mainFunctionality;
-
+  // Use environment variables or defaults
+  const validUsername = process.env.USERNAME || 'student';
+  const validPassword = process.env.PASSWORD || 'Password123';
+  
   let scenarios = '';
 
-  if (mainFunc.includes('authentication') || mainFunc.includes('login')) {
-    scenarios += `
-  @happy-path @positive
-  Scenario: Successful login with valid credentials
-    Given I am on the login page
-    When I enter valid username and password
-    And I click the "login" button
-    Then I should see a success message
-
-  @negative @validation
-  Scenario: Login with missing required fields
-    Given I am on the login page
-    When I enter empty username and password
-    And I click the "login" button
-    Then I should see an error message
-    And the form should remain on the page
-`;
-  } else if (hasForm) {
-    scenarios += `
-  @happy-path @positive
-  Scenario: Successfully submit form with valid data
-    Given the form is displayed
-    When I fill all required fields with valid data
-    And I click the "submit" button
-    Then I should see a success message
-
-  @negative @validation
-  Scenario: Form submission with empty required fields
-    Given the form is displayed
-    When I leave all required fields empty
-    And I click the "submit" button
-    Then I should see validation error messages
-    And the form should remain on the current page
-`;
-  } else if (hasInputs) {
-    scenarios += `
-  @happy-path @positive
-  Scenario: Data entry with valid input
-    Given the page is loaded with input fields
-    When I enter valid data into all fields
-    And I submit the input
-    Then the data should be accepted
-
-  @negative @validation
-  Scenario: Data entry with missing required fields
-    Given the page is loaded with input fields
-    When I leave required fields empty
-    And I submit the input
-    Then I should see validation errors
-    And the data should not be accepted
-`;
-  } else {
+  if (pageAnalysis.forms.length > 0 && pageAnalysis.inputFields.length > 0) {
     scenarios += `
   @smoke @positive
-  Scenario: Page loads successfully
-    Given I navigate to the page
-    Then the page should display correctly
-    And all expected elements should be visible
+  Scenario: Successful Login with Valid Credentials
+    Given I am on the login page
+    When I enter valid username "${validUsername}" and password "${validPassword}"
+    And I click the "submit" button
+    Then I should see a successful login message "Logged In Successfully"
 
-  @functional
-  Scenario: Page navigation and content access
-    Given the page is loaded
-    When I interact with the page elements
-    Then the page should remain functional
-    And all sections should be accessible
+  @negative @validation
+  Scenario: Invalid username format
+    Given I am on the login page
+    When I enter "invalid_username" as my username and any password
+    And I click the "submit" button
+    Then the error message "Your username is invalid!" should be displayed
+    And the form remains on the login page
 `;
   }
 
+  return scenarios;
+}
+
+function parseFeatureContent(featureContent: string): any[] {
+  const scenarios: any[] = [];
+  const lines = featureContent.split('\n');
+  let currentScenario: any = null;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('Scenario:')) {
+      if (currentScenario) {
+        scenarios.push(currentScenario);
+      }
+      currentScenario = {
+        name: trimmed.replace('Scenario:', '').trim(),
+        steps: []
+      };
+    } else if (trimmed.match(/^\s*(Given|When|Then|And|But)\s/)) {
+      if (currentScenario) {
+        const stepMatch = trimmed.match(/^\s*(Given|When|Then|And|But)\s(.+)$/);
+        if (stepMatch) {
+          const stepType = stepMatch[1] === 'And' || stepMatch[1] === 'But' ? 'Given' : stepMatch[1];
+          currentScenario.steps.push({
+            type: stepType as 'Given' | 'When' | 'Then',
+            text: stepMatch[2]
+          });
+        }
+      }
+    }
+  }
+  
+  if (currentScenario) {
+    scenarios.push(currentScenario);
+  }
+  
   return scenarios;
 }

@@ -19,7 +19,8 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "types": ["node"]
+    "types": ["node"],
+    "downlevelIteration": true
   },
   "ts-node": {
     "compilerOptions": {

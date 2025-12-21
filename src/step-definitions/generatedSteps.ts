@@ -64,9 +64,9 @@ When(/^the user clicks login button$/, async function () {
 });
 
 /**
- * the user sees logged in heading with text containing "Logged In Successfully"
+ * the user sees logged in h1 heading containing text "Logged In Successfully"
  */
-Then(/^the user sees logged in heading with text containing "([^"]*)"$/, async function (expectedText) {
+Then(/^the user sees logged in h1 heading containing text "([^"]*)"$/, async function (expectedText) {
   try {
     const element = pageContextManager.getPage('dashboard').loggedInHeading_text;
     await expect(element).toBeDisplayed({ timeout: 5000 });

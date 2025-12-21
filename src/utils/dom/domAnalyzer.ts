@@ -687,3 +687,4 @@ function generateSuggestedScenarios(
 
   return Array.from(new Set(scenarios)).slice(0, 10);
 }
+

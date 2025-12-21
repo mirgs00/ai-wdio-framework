@@ -4,6 +4,7 @@ import * as path from 'path';
 import { createOllamaClient } from '../ai/ollamaClient';
 import { analyzeDOM } from '../dom/domAnalyzer';
 import { discoverElementsFromDOM, DiscoveredElement } from '../dom/discoverElementsFromDOM';
+import * as fs from 'fs';
 
 export interface HealingContext {
   stepText: string;
@@ -323,9 +324,14 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
    */
   private async updateStepDefinition(stepText: string, newImplementation: string): Promise<void> {
     const stepsPath = path.resolve('src/step-definitions/generatedSteps.ts');
+    
+    if (!fs.existsSync(stepsPath)) {
+      console.warn(`⚠️ Step definitions file not found: ${stepsPath}`);
+      return;
+    }
 
     try {
-      let content = readFileSync(stepsPath, 'utf-8');
+      let content = fs.readFileSync(stepsPath, 'utf-8');
 
       // Escape step text for regex
       const escapedStep = stepText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -339,8 +345,10 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
       if (stepPattern.test(content)) {
         // Update found, replace try-catch block with new implementation
         content = content.replace(stepPattern, `$1${newImplementation}\n  } catch (error)`);
-        writeFileSync(stepsPath, content);
+        fs.writeFileSync(stepsPath, content);
         console.log(`✅ Updated step definition for: "${stepText}"`);
+      } else {
+        console.warn(`⚠️ Could not find step definition pattern for: "${stepText}"`);
       }
     } catch (error) {
       console.warn(
@@ -362,3 +370,6 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
 }
 
 export const selfHealingService = new SelfHealingService();
+
+
+
