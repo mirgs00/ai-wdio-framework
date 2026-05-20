@@ -1,10 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { quote } from 'shell-quote';
 import { logger } from '../logger';
-import { analyzeDOM } from '../dom/domAnalyzer';
 import { buildPageObjects } from './pageObjectBuilder';
-import { buildScenario } from './scenarioBuilder';
 import { fetchDOM } from '../dom/domParser';
 
 export interface FailedStep {
@@ -223,25 +222,23 @@ export class RerunFailedSteps {
 
       console.log(`\n🧪 Re-running ${features.length} feature file(s)...\n`);
 
-      // Build WDIO command with all failed feature files
-      const specArgs = features
-        .map((feature) => {
-          const featurePath = path.resolve(`src/features/${feature}`);
-          return `--spec ${featurePath}`;
-        })
-        .join(' ');
+      // Build WDIO args array (no shell interpolation = no command injection)
+      const specArgs = features.flatMap((feature) => {
+        const featurePath = path.resolve(`src/features/${feature}`);
+        return ['--spec', featurePath];
+      });
 
-      const wdioCommand = [
-        'npx wdio run ./wdio.conf.ts',
-        specArgs,
-        '--mochaOpts.timeout 60000',
-        '--specFileRetries 1',
-      ].join(' ');
+      const wdioArgs = [
+        'run', './wdio.conf.ts',
+        ...specArgs,
+        '--mochaOpts.timeout', '60000',
+        '--specFileRetries', '1',
+      ];
 
-      console.log(`🚀 Executing: ${wdioCommand}\n`);
+      console.log(`🚀 Executing: npx wdio ${wdioArgs.join(' ')}\n`);
 
       try {
-        execSync(wdioCommand, { stdio: 'inherit' });
+        execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
         console.log('\n✅ Rerun tests completed successfully!');
       } catch (error) {
         console.error('\n⚠️ Some tests failed during rerun');

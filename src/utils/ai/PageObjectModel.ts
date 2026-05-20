@@ -93,10 +93,9 @@ export class PageObjectModel {
 `;
 
         // 2. Define the search pattern using the markers
-        // The regex captures the entire block between the start and end markers for the specific element.
-        // The 's' flag (dotall) is used to allow '.' to match newlines.
+        const escaped = elementName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const searchPattern = new RegExp(
-            `// LOCATOR_START: ${elementName}[\\s\\S]*?// LOCATOR_END: ${elementName}`,
+            `// LOCATOR_START: ${escaped}[\\s\\S]*?// LOCATOR_END: ${escaped}`,
             's'
         );
 

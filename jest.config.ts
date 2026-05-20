@@ -6,6 +6,10 @@ const config: Config = {
   roots: ['<rootDir>/src', '<rootDir>/test'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
+  clearMocks: true,
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'clover'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {

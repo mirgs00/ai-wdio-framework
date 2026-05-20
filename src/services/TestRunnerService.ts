@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
+import { quote } from 'shell-quote';
 import { TIMEOUTS } from '../utils/constants';
 
 export class TestRunnerService {
@@ -8,15 +9,15 @@ export class TestRunnerService {
       console.log('\n🧪 Running generated tests...');
       const absFeaturePath = path.resolve(featureFilePath);
 
-      const wdioCommand = [
-        'npx wdio run ./wdio.conf.ts',
-        `--spec ${absFeaturePath}`,
-        `--mochaOpts.timeout ${timeout}`,
-        '--specFileRetries 1',
-      ].join(' ');
+      const wdioArgs = [
+        'run', './wdio.conf.ts',
+        '--spec', absFeaturePath,
+        '--mochaOpts.timeout', String(timeout),
+        '--specFileRetries', '1',
+      ];
 
-      console.log(`🚀 Test command: ${wdioCommand}`);
-      execSync(wdioCommand, { stdio: 'inherit' });
+      console.log(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
+      execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
       console.log('✅ Tests completed successfully!');
     } catch (error) {
       console.error('❌ Test execution failed:', error instanceof Error ? error.message : error);

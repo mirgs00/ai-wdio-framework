@@ -1,5 +1,9 @@
 import * as cheerio from 'cheerio';
 
+function escapeCSS(value: string): string {
+  return value.replace(/["\\]/g, '\\$&');
+}
+
 export interface DiscoveredElement {
   tag: string;
   id?: string;
@@ -57,13 +61,13 @@ export function discoverElementsFromDOM(html: string): DiscoveredElement[] {
     if (id) {
       selector = `#${id}`;
     } else if (name) {
-      selector = `${tag}[name="${name}"]`;
+      selector = `${tag}[name="${escapeCSS(name)}"]`;
     } else if (ariaLabel) {
-      selector = `${tag}[aria-label="${ariaLabel}"]`;
+      selector = `${tag}[aria-label="${escapeCSS(ariaLabel)}"]`;
     } else if ($el.attr('data-testid')) {
-      selector = `[data-testid="${$el.attr('data-testid')}"]`;
+      selector = `[data-testid="${escapeCSS($el.attr('data-testid')!)}"]`;
     } else if (text && text.length < 30) {
-      selector = `${tag}:contains("${text}")`;
+      selector = `${tag}:contains("${escapeCSS(text)}")`;
     } else {
       selector = tag;
     }

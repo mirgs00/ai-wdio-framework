@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import {
   validateAllPageSelectors,
@@ -16,7 +16,7 @@ export class SelectorValidationService {
       console.log('\n🔍 Starting selector validation...');
 
       const pageObjectsDir = path.resolve('src/page-objects');
-      if (!existsSync(pageObjectsDir)) {
+      if (!fs.existsSync(pageObjectsDir)) {
         console.error('❌ No page objects found. Please generate tests first.');
         process.exit(1);
       }
@@ -24,13 +24,13 @@ export class SelectorValidationService {
       // Extract page URLs and selectors from generated page objects
       const pages: Record<string, { selectors: Record<string, string>; url?: string }> = {};
 
-      const files = require('fs')
+      const files = fs
         .readdirSync(pageObjectsDir)
         .filter((f: string) => f.startsWith('generated') && f.endsWith('.ts'));
 
       for (const file of files) {
         const filePath = path.join(pageObjectsDir, file);
-        const content = readFileSync(filePath, 'utf-8');
+        const content = fs.readFileSync(filePath, 'utf-8');
 
         // Extract page name
         const pageNameMatch = file.match(/generated(\w+)Page\.ts/);

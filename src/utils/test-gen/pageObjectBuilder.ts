@@ -1,12 +1,8 @@
 // src/utils/test-gen/pageObjectBuilder.ts
-try {
-  require('dotenv/config');
-} catch {
-  // dotenv may not be available
-}
+import 'dotenv/config';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import * as path from 'path';
-import { OllamaClient } from '../ai/ollamaClient';
+import { load } from 'cheerio';
 import { analyzeDOM } from '../dom/domAnalyzer';
 import { logger } from '../logger';
 
@@ -84,7 +80,7 @@ function capitalize(str: string): string {
 }
 
 function detectPageType(htmlContent: string, url: string): string {
-  const $ = require('cheerio').load(htmlContent);
+  const $ = load(htmlContent);
   const content = htmlContent.toLowerCase();
   const title = $('title').text().toLowerCase();
 

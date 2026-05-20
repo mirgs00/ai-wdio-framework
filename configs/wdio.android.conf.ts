@@ -11,9 +11,7 @@ export const config = {
         'appium:app': process.env.ANDROID_APP || path.resolve(__dirname, '../../apps/SauceLabsSample.apk'),
         'appium:autoGrantPermissions': true
     }],
-    specs: ['src/features/sample.feature'],
     cucumberOpts: {
-        require: ['src/step-definitions/**/*.ts'],
         timeout: 60000
 },
     services: [

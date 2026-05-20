@@ -975,14 +975,8 @@ ${definitions}`;
   }`;
     }
 
-    // Default implementation
-    return `  try {
-    // TODO: Implement this step - ${gherkinStep}
-    console.log('Step implementation needed: ${gherkinStep}');
-    await browser.pause(100);
-  } catch (error) {
-    throw new Error(\`Step failed: \${error}\`);
-  }`;
+    // Default implementation - throw instead of silently passing
+    return `  throw new Error('Step not implemented: ${gherkinStep}');`;
   }
 
   /**

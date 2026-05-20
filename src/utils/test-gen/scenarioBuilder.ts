@@ -1,19 +1,8 @@
 // src/utils/test-gen/scenarioBuilder.ts
-try {
-  require('dotenv/config');
-} catch {
-  // dotenv may not be available
-}
-import { getDOMSnapshot } from '../dom/domParser';
-import { OllamaClient } from '../ai/ollamaClient';
-import { analyzeDOM } from '../dom/domAnalyzer';
-import { promptTemplateManager } from '../ai/promptTemplates';
-import { scenarioClassifier } from './scenarioClassifier';
+import 'dotenv/config';
+import { buildStepDefinitions, generateStepDefinitions } from './stepDefinitionBuilder';
 import { ScenarioQualityValidator } from './qualityValidator';
-import { buildStepDefinitions, generateStepDefinitions, DEFAULT_PARAMETERS } from './stepDefinitionBuilder';
-import fs from 'fs';
-import path from 'path';
-import { load } from 'cheerio';
+import { normalizeUrl, validateUrl } from '../validation';
 
 const scenarioQualityValidator = new ScenarioQualityValidator();
 

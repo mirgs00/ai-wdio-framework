@@ -47,14 +47,22 @@ export class LocatorHelper {
   }
 
   /**
-   * Find multiple elements
+   * Find all elements matching the description
    */
   static async findAll(
     description: ElementDescription | string,
-    options: SmartElementOptions = {}
+    _options: SmartElementOptions = {}
   ) {
-    const element = await this.find(description, options);
-    return element.parentElement() || element;
+    if (typeof description === 'string') {
+      return browser.$$(description);
+    }
+    // Build a broad selector from element attributes
+    const parts: string[] = [];
+    if (description.type) parts.push(description.type);
+    if (description.role) parts.push(`[role="${description.role}"]`);
+    if (description.ariaLabel) parts.push(`[aria-label="${description.ariaLabel}"]`);
+    const selector = parts.length > 0 ? parts.join('') : '*';
+    return browser.$$(selector);
   }
 
   /**

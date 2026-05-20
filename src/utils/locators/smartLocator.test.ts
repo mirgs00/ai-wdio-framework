@@ -24,7 +24,7 @@ describe('SmartLocator', () => {
         ariaLabel: 'Send Form',
       };
 
-      const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
+      const strategies = await (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       expect(strategies.length).toBeGreaterThan(0);
       expect(strategies.some((s: LocatorStrategy) => s.type === 'text')).toBe(true);
@@ -33,7 +33,7 @@ describe('SmartLocator', () => {
 
     test('should prioritize ID selector highest', async () => {
       const description: ElementDescription = { text: 'Button' };
-      const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
+      const strategies = await (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       const idStrategy = strategies.find((s: LocatorStrategy) => s.type === 'id');
       expect(idStrategy?.priority).toBeGreaterThan(90);
@@ -41,7 +41,7 @@ describe('SmartLocator', () => {
 
     test('should handle missing attributes gracefully', async () => {
       const description: ElementDescription = { text: 'Button' };
-      const strategies = (smartLocator as any).generateLocatorStrategies(description, 'test');
+      const strategies = await (smartLocator as any).generateLocatorStrategies(description, 'test');
 
       expect(strategies.length).toBeGreaterThan(0);
       expect(strategies.every((s: LocatorStrategy) => s.selector)).toBe(true);

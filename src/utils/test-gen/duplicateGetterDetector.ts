@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
 
@@ -22,7 +22,7 @@ export class DuplicateGetterDetector {
    * Analyzes a page object file for duplicate getters
    */
   static analyzePageObject(filePath: string): DuplicateDetectionReport {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n');
 
     const getters = this.extractGetters(content, lines);
@@ -45,7 +45,6 @@ export class DuplicateGetterDetector {
    * Analyzes all page objects in a directory
    */
   static analyzePageObjects(pageObjectsDir: string): DuplicateDetectionReport[] {
-    const fs = require('fs');
     const files = fs
       .readdirSync(pageObjectsDir)
       .filter((f: string) => f.startsWith('generated') && f.endsWith('Page.ts'));
@@ -142,7 +141,7 @@ export class DuplicateGetterDetector {
         content = content.replace(getterRegex, replacement);
       }
 
-      writeFileSync(filePath, content);
+      fs.writeFileSync(filePath, content);
 
       logger.info(`Fixed duplicate getters in ${report.pageName}`, {
         section: 'DUPLICATE_DETECTOR',

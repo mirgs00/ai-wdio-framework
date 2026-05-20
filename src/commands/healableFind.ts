@@ -41,14 +41,14 @@ browser.addCommand('healableFind', async function (elementName: string): Promise
         throw new Error(`Element name '${elementName}' not found in Page Object Model. Cannot attempt find.`);
     }
     
-    let currentLocator = `${locatorData.type}=${locatorData.value}`;
+    let currentLocator = locatorData.value;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-            // 1. Attempt to find the element using the current locator
             const element = browser.$(currentLocator);
             await element.waitForExist({ timeout: 5000 });
-            return element; // Success! Return the element.
+            const resolved = await element.getElement();
+            return resolved;
 
         } catch (error: unknown) {
             // 2. Intercept Element Not Found Error

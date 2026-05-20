@@ -15,8 +15,7 @@ export class TestDataGenerator {
   private shortPasswords = ['Pass1', 'Pwd123', 'Sec1'];
   private specialCharacters = [
     '!@#$%^&*()',
-    '<script>alert(1)</script>',
-    '"; DROP TABLE users; --',
+    "'\"\\<>{}|;:",  // special chars for input validation testing
   ];
 
   generateTestDataForForm(form: FormInfo): TestDataSet {

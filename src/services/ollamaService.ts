@@ -1,5 +1,6 @@
 import { execSync, spawn } from 'child_process';
 import fetch from 'node-fetch';
+import { getConfig } from '../config';
 
 /**
  * WebdriverIO Service for Ollama AI
@@ -7,6 +8,8 @@ import fetch from 'node-fetch';
  */
 export class OllamaService {
   private ollamaProcess: any = null;
+  private ollamaStdoutListener: ((data: Buffer) => void) | null = null;
+  private ollamaStderrListener: ((data: Buffer) => void) | null = null;
   private readonly OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
   private readonly HEALTH_CHECK_ENDPOINT = `${this.OLLAMA_URL}/api/tags`;
   private readonly HEALTH_CHECK_TIMEOUT = 5000;
@@ -22,6 +25,13 @@ export class OllamaService {
   async onComplete() {
     console.log('\n🤖 Ollama Service: Cleaning up...');
     if (this.ollamaProcess) {
+      // Clean up stream listeners to prevent memory leaks
+      if (this.ollamaStdoutListener && this.ollamaProcess.stdout) {
+        this.ollamaProcess.stdout.removeListener('data', this.ollamaStdoutListener);
+      }
+      if (this.ollamaStderrListener && this.ollamaProcess.stderr) {
+        this.ollamaProcess.stderr.removeListener('data', this.ollamaStderrListener);
+      }
       try {
         console.log('🛑 Stopping Ollama service...');
         this.ollamaProcess.kill('SIGTERM');
@@ -101,7 +111,7 @@ export class OllamaService {
       });
 
       // Log Ollama output
-      this.ollamaProcess.stdout?.on('data', (data: Buffer) => {
+      this.ollamaStdoutListener = (data: Buffer) => {
         const message = data.toString().trim();
         if (message && !message.includes('listening on')) {
           // Only log relevant messages, not every line
@@ -109,14 +119,16 @@ export class OllamaService {
             console.log(`   [Ollama] ${message}`);
           }
         }
-      });
+      };
+      this.ollamaProcess.stdout?.on('data', this.ollamaStdoutListener);
 
-      this.ollamaProcess.stderr?.on('data', (data: Buffer) => {
+      this.ollamaStderrListener = (data: Buffer) => {
         const message = data.toString().trim();
         if (message) {
           console.warn(`   [Ollama] ${message}`);
         }
-      });
+      };
+      this.ollamaProcess.stderr?.on('data', this.ollamaStderrListener);
 
       this.ollamaProcess.on('error', (error: Error) => {
         console.error(`❌ Failed to start Ollama: ${error.message}`);
@@ -160,6 +172,13 @@ export class OllamaService {
   }
 
   private async ensureOllamaRunning(): Promise<void> {
+    const config = getConfig();
+
+    if (config.ollama.disabled) {
+      console.warn('⚠️  Ollama AI features are disabled (OLLAMA_DISABLE=true)');
+      return;
+    }
+
     console.log(`🔍 Checking Ollama service at ${this.OLLAMA_URL}...`);
 
     const isHealthy = await this.isOllamaHealthy();

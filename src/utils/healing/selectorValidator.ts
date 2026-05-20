@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { $ } from '@wdio/globals';
 import { logger } from '../logger';
 
@@ -184,7 +185,6 @@ export function exportValidationResults(
   results: PageSelectorValidationResult[],
   filePath: string
 ): void {
-  const fs = require('fs');
   const data = {
     timestamp: new Date().toISOString(),
     summary: {

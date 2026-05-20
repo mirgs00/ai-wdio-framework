@@ -4,6 +4,7 @@ export interface OllamaConfig {
   timeout: number;
   maxRetries: number;
   retryDelayMs: number;
+  disabled: boolean;
 }
 
 export interface WebdriverConfig {
@@ -47,6 +48,7 @@ export class ConfigManager {
         timeout: this.parseNumber(process.env.OLLAMA_TIMEOUT, 30000),
         maxRetries: this.parseNumber(process.env.OLLAMA_MAX_RETRIES, 3),
         retryDelayMs: this.parseNumber(process.env.OLLAMA_RETRY_DELAY_MS, 1000),
+        disabled: this.parseBoolean(process.env.OLLAMA_DISABLE, false),
       },
       webdriver: {
         headless: this.parseBoolean(process.env.HEADLESS, true),

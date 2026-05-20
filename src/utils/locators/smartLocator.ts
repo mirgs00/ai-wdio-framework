@@ -169,9 +169,10 @@ export class SmartLocator {
 
     // 6. Text content-based
     if (desc.text && desc.text.length < 50) {
+      const escapedText = desc.text.replace(/"/g, '""');
       strategies.push({
         type: 'text',
-        selector: `//*[contains(text(), "${desc.text}")]`,
+        selector: `//*[contains(text(), "${escapedText}")]`,
         priority: 75,
         description: 'XPath text selector',
       });
@@ -324,21 +325,27 @@ Best selector:`;
   /**
    * Generate fuzzy XPath tolerant to minor DOM changes
    */
+  private escapeXPath(value: string): string {
+    return value.replace(/"/g, '""');
+  }
+
   private generateFuzzyXPath(desc: ElementDescription): string {
     const parts: string[] = [];
 
     if (desc.text) {
+      const text = this.escapeXPath(desc.text);
+      const shortText = this.escapeXPath(desc.text.substring(0, 10));
       parts.push(
-        `//*[normalize-space(.) = "${desc.text}" or contains(normalize-space(.), "${desc.text.substring(0, 10)}")]`
+        `//*[normalize-space(.) = "${text}" or contains(normalize-space(.), "${shortText}")]`
       );
     }
 
     if (desc.type) {
-      parts.push(`//input[@type="${desc.type}"]`);
+      parts.push(`//input[@type="${this.escapeXPath(desc.type)}"]`);
     }
 
     if (desc.role) {
-      parts.push(`//*[@role="${desc.role}"]`);
+      parts.push(`//*[@role="${this.escapeXPath(desc.role)}"]`);
     }
 
     if (desc.ariaLabel) {

@@ -1,32 +1,71 @@
-// Auto-generated Page Object for dashboard
-// Page URL: https://practicetestautomation.com/practice-test-login/logged-in-successfully/
-// Description: Dashboard page after successful login
-// Elements: success, loggedInHeading
+// Auto-generated Page Object for: https://practicetestautomation.com/practice-test-login/logged-in-successfully/
 import { $, browser } from '@wdio/globals';
+import { ChainablePromiseElement } from 'webdriverio';
 
-class DashboardPage {
-
+class GeneratedPage {
   /**
-   * Success message
+   * Heading (H2): Test login
    */
-  get success_text() {
-    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
+  public get testLogin_heading(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h2');
   }
 
   /**
-   * Logged in success heading
+   * Heading (H5): Test case 1: Positive LogIn test
    */
-  get loggedInHeading_text() {
-    return $('h1, h2, [class*="heading"], [class*="title"]');
+  public get testCase1PositiveLogInTest_heading(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h5');
+  }
+
+  /**
+   * Success message: Home
+Practice
+Courses
+Blog
+Contact
+
+							
+						
+   */
+  public get overflowContainer_success(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('#overflow-container');
+  }
+
+  /**
+   * Success message: Home
+Practice
+Courses
+Blog
+Contact
+
+							
+						
+   */
+  public get maxWidth_success(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('#max-width');
+  }
+
+  /**
+   * Text element: Test login
+   */
+  public get test_login_text(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h2');
+  }
+
+  /**
+   * Text element: Test case 1: Positive LogIn test
+   */
+  public get test_case_1_Positive_LogIn_te_text(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h5');
   }
 
   // Common actions
-  async open() {
+  async open(): Promise<void> {
     await browser.url('https://practicetestautomation.com/practice-test-login/logged-in-successfully/');
     await this.waitForPageLoad();
   }
 
-  async waitForPageLoad() {
+  async waitForPageLoad(): Promise<void> {
     await browser.waitUntil(
       async () => (await browser.execute(() => document.readyState)) === 'complete',
       { timeout: 15000, timeoutMsg: 'Page did not load' }
@@ -34,4 +73,5 @@ class DashboardPage {
   }
 }
 
-export default new DashboardPage();
+export const generatedPage = new GeneratedPage();
+export default GeneratedPage;

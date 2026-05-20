@@ -1,58 +1,141 @@
 // Auto-generated Page Object for: https://practicetestautomation.com/practice-test-login/
-// Generated from instructions: Test the login page with positive and negative credential flows
 import { $, browser } from '@wdio/globals';
+import { ChainablePromiseElement } from 'webdriverio';
 
 class GeneratedPage {
-
   /**
-   * Username input field
+   * Username
    */
-  get username_input() {
+  public get username_input(): ChainablePromiseElement<WebdriverIO.Element> {
     return $('#username');
   }
 
   /**
-   * Password input field
+   * Password
    */
-  get password_input() {
+  public get password_input(): ChainablePromiseElement<WebdriverIO.Element> {
     return $('#password');
   }
 
   /**
-   * Submit button
+   * Submit
    */
-  get submit_button() {
+  public get submit_button(): ChainablePromiseElement<WebdriverIO.Element> {
     return $('#submit');
   }
 
   /**
-   * Success message
+   * Link: Home
    */
-  get success_text() {
-    return $('#success, [class*="success"], [id*="success"], .alert-success, [class*="confirmation"]');
+  public get home_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/"]');
   }
 
   /**
-   * Logged in success heading
+   * Link: Practice
    */
-  get loggedInHeading_text() {
-    return $('h1, h2, [class*="heading"], [class*="title"]');
+  public get practice_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/practice/"]');
   }
 
   /**
-   * Error message
+   * Link: Courses
    */
-  get error_text() {
-    return $('#error, [class*="error"], [id*="error"], [role="alert"], .alert-danger');
+  public get courses_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/courses/"]');
+  }
+
+  /**
+   * Link: Blog
+   */
+  public get blog_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/blog/"]');
+  }
+
+  /**
+   * Link: Contact
+   */
+  public get contact_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/contact/"]');
+  }
+
+  /**
+   * Link: Privacy Policy
+   */
+  public get privacyPolicy_link(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('a[href="https://practicetestautomation.com/privacy-policy/"]');
+  }
+
+  /**
+   * Heading (H2): Test login
+   */
+  public get testLogin_heading(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h2');
+  }
+
+  /**
+   * Heading (H5): Test case 1: Positive LogIn test
+   */
+  public get testCase1PositiveLogInTest_heading(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h5');
+  }
+
+  /**
+   * Error message: Your username is invalid!
+   */
+  public get error_error(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('#error');
+  }
+
+  /**
+   * Success message: Home
+Practice
+Courses
+Blog
+Contact
+
+							
+						
+   */
+  public get overflowContainer_success(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('#overflow-container');
+  }
+
+  /**
+   * Success message: Home
+Practice
+Courses
+Blog
+Contact
+
+							
+						
+   */
+  public get maxWidth_success(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('#max-width');
+  }
+
+  /**
+   * Text element: Test login
+   */
+  public get test_login_text(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h2');
+  }
+
+  /**
+   * Text element: Test case 1: Positive LogIn test
+   */
+  public get test_case_1_Positive_LogIn_te_text(): ChainablePromiseElement<WebdriverIO.Element> {
+    return $('h5');
   }
 
   // Common actions
-  async open() {
+  async open(): Promise<void> {
     await browser.url('https://practicetestautomation.com/practice-test-login/');
     await this.waitForPageLoad();
   }
 
-  async waitForPageLoad() {
+  async waitForPageLoad(): Promise<void> {
     await browser.waitUntil(
       async () => (await browser.execute(() => document.readyState)) === 'complete',
       { timeout: 15000, timeoutMsg: 'Page did not load' }
@@ -60,4 +143,5 @@ class GeneratedPage {
   }
 }
 
-export default new GeneratedPage();
+export const generatedPage = new GeneratedPage();
+export default GeneratedPage;

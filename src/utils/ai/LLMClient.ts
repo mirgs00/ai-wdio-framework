@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import * as crypto from 'crypto';
-// NOTE: Replace 'openai' with your actual LLM client library (e.g., 'ollama' or a custom wrapper)
-// For this example, we use a mock client structure.
-// import { OpenAI } from 'openai'; 
+import { OllamaClient } from './ollamaClient';
 
 // --- 1. Custom Error and Schema ---
 
@@ -25,18 +23,20 @@ export type LLMSuggestion = z.infer<typeof LLMSuggestionSchema>;
 // --- 2. LLM Client Implementation ---
 
 export class LLMClient {
-    // private client: OpenAI; // Use the actual LLM client instance
+    private client: OllamaClient;
     private modelName: string;
     private maxRetries: number;
     private timeout: number;
 
     constructor(
-        modelName: string = 'gpt-4o-mini', // Or 'ollama/llama3'
+        modelName: string = 'ollama/llama3',
         maxRetries: number = 3,
         timeout: number = 60
     ) {
-        // Initialize the actual LLM client here
-        // this.client = new OpenAI({}); 
+        this.client = new OllamaClient({
+            model: modelName.replace('ollama/', ''),
+            timeout: timeout * 1000,
+        });
         this.modelName = modelName;
         this.maxRetries = maxRetries;
         this.timeout = timeout;
@@ -65,24 +65,12 @@ ${JSON.stringify(LLMSuggestionSchema.shape, null, 2)}
 `;
     }
 
-    // NOTE: This is a mock implementation of the API call. Replace with your actual LLM API call.
-    private async _mockApiCall(prompt: string): Promise<string> {
-        // Simulate API call and latency
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Simulate a successful response
-        const mockResponse = {
-            newLocator: 'button[data-test-id="submit-btn-healed"]',
-            locatorType: 'css',
-            reasoning: 'The element\'s ID changed, but a stable data-test-id was found on the button.'
-        };
-        
-        // Randomly simulate a failure on the first attempt to test retry logic
-        if (Math.random() < 0.2) {
-             throw new LLMAPIError('Simulated temporary API failure.', 503);
-        }
-
-        return JSON.stringify(mockResponse);
+    private async _callLLM(prompt: string): Promise<string> {
+        return this.client.generateText(prompt, {
+            temperature: 0.1,
+            max_tokens: 300,
+            retries: 1,
+        });
     }
 
     public async requestNewLocator(
@@ -95,9 +83,7 @@ ${JSON.stringify(LLMSuggestionSchema.shape, null, 2)}
         for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
             console.log(`[LLMClient] Attempting to get new locator (Attempt ${attempt}/${this.maxRetries})...`);
             try {
-                // 1. LLM API Call (Replace _mockApiCall with your actual client call)
-                // const rawJson = await this.client.chat.completions.create({...});
-                const rawJson = await this._mockApiCall(prompt);
+                const rawJson = await this._callLLM(prompt);
 
                 if (!rawJson) {
                     throw new LLMAPIError('LLM returned an empty response.');

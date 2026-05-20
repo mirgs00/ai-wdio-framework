@@ -14,39 +14,34 @@ async function getIntelligentDomContext(
     failedLocator: string,
     semanticPurpose: string
 ): Promise<string> {
-    // 1. JavaScript to execute in the browser context
-    const jsScript = `
-        function getStructuralContext(failedLocator, semanticPurpose) {
-            // Use a robust method to approximate the element's location.
-            // This is a conceptual approximation using the failed locator's value.
-            const approxElement = document.querySelector(\`[id="\${failedLocator}"]\`) || 
-                                  document.querySelector(\`[data-test-id="\${failedLocator}"]\`) ||
-                                  document.querySelector('body'); // Fallback
+    // 2. Execute the script in the browser, passing values as arguments (prevents injection)
+    const rawDomContext = await browser.execute(
+        function (failedLocator: string, semanticPurpose: string) {
+            const approxElement =
+                document.querySelector(`[id="${failedLocator}"]`) ||
+                document.querySelector(`[data-test-id="${failedLocator}"]`) ||
+                document.querySelector('body');
 
             let context = '';
             let current = approxElement;
-            let limit = 3; // Collect up to 3 levels (element, parent, grandparent)
+            let limit = 3;
 
             while (current && limit > 0) {
-                // Prepend the current element's outerHTML to the context
-                context = current.outerHTML + '\\n' + context;
+                context = current.outerHTML + '\n' + context;
                 current = current.parentElement;
                 limit--;
             }
             return context;
-        }
-
-        return getStructuralContext('${failedLocator}', '${semanticPurpose}');
-    `;
-
-    // 2. Execute the script and get the raw DOM context
-    const rawDomContext = await browser.execute(jsScript);
+        },
+        failedLocator,
+        semanticPurpose
+    );
 
     // 3. Attribute Filtering (Pre-processing to remove noise)
     let cleanedContext = rawDomContext as string;
 
     // Regex to remove common dynamic/irrelevant attributes (e.g., React/Vue hashes, session IDs)
-    const dynamicAttrRegex = /(style|class="[^"]*?\d{4,}[^"]*?"|data-session-id|data-reactid)="[^"]*"/g;
+    const dynamicAttrRegex = /((?:style|class)="[^"]*?\d{4,}[^"]*?"|data-session-id="[^"]*"|data-reactid="[^"]*")/g;
     cleanedContext = cleanedContext.replace(dynamicAttrRegex, '');
 
     // Further cleaning: remove excessive whitespace and newlines
@@ -72,7 +67,7 @@ export class SelfHealingLocator {
         try {
             // 1. Check for Uniqueness
             const elements = await browser.$$(locator);
-            if (await elements.length !== 1) {
+            if (elements.length !== 1) {
                 console.warn(`[Heal Validate] Locator is not unique. Found ${elements.length} elements.`);
                 return false;
             }

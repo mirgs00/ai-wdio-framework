@@ -2,7 +2,7 @@ import { $ } from '@wdio/globals';
 import { validateSelector, SelectorValidationResult } from './selectorValidator';
 import { logger } from '../logger';
 import * as path from 'path';
-import { readFileSync, writeFileSync } from 'fs';
+import { promises as fsAsync } from 'fs';
 import type { FailedStep } from '../test-gen/rerunFailedSteps';
 
 export interface SelectorHealing {
@@ -59,7 +59,7 @@ export class HealingService {
         this.pageObjectsDir,
         `generated${this.capitalize(pageName)}Page.ts`
       );
-      const content = readFileSync(filePath, 'utf-8');
+      const content = await fsAsync.readFile(filePath, 'utf-8');
 
       // Extract selectors from page object
       const selectors = this.extractSelectors(content);
@@ -250,7 +250,7 @@ export class HealingService {
         this.pageObjectsDir,
         `generated${this.capitalize(pageName)}Page.ts`
       );
-      let content = readFileSync(filePath, 'utf-8');
+      let content = await fsAsync.readFile(filePath, 'utf-8');
 
       let updatedCount = 0;
 
@@ -280,7 +280,7 @@ export class HealingService {
       }
 
       if (updatedCount > 0) {
-        writeFileSync(filePath, content, 'utf-8');
+        await fsAsync.writeFile(filePath, content, 'utf-8');
         logger.info(`✅ Updated ${pageName} page object with ${updatedCount} healed selectors`, {
           section: 'HEALING_SERVICE',
           details: { pageName, updatedCount },
@@ -352,7 +352,7 @@ export class HealingService {
         `generated${this.capitalize(pageName)}Page.ts`
       );
 
-      if (!readFileSync(filePath, 'utf-8')) {
+      if (!(await fsAsync.readFile(filePath, 'utf-8'))) {
         logger.error(`Page object not found: ${filePath}`, new Error('File not found'));
         return { success: false };
       }

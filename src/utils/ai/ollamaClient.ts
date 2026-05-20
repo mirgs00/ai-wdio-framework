@@ -1,6 +1,7 @@
 // src/utils/ai/ollamaClient.ts
 import fetch, { RequestInit } from 'node-fetch';
 import { AbortError } from 'node-fetch';
+import { getConfig } from '../../config';
 import { logger } from '../logger';
 
 export interface OllamaResponse {
@@ -77,6 +78,9 @@ export class OllamaClient {
   }
 
   async generateText(prompt: string, options?: OllamaOptions): Promise<string> {
+    if (getConfig().ollama.disabled) {
+      throw new Error('Ollama AI is disabled (OLLAMA_DISABLE=true). Set OLLAMA_DISABLE=false or unset it to enable.');
+    }
     const maxRetries = options?.retries ?? this.maxRetries;
     const retryDelayMs = options?.retryDelayMs ?? this.retryDelayMs;
     let lastError: Error | null = null;

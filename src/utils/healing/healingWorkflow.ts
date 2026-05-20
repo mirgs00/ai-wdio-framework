@@ -1,8 +1,8 @@
 import { HealingService } from './healingService';
-import { TestFailureTracker, FailureReport } from '../test-gen/testFailureTracker';
+import { TestFailureTracker } from '../test-gen/testFailureTracker';
 import { logger } from '../logger';
 import * as path from 'path';
-import { existsSync, readFileSync } from 'fs';
+import * as fs from 'fs';
 
 export interface WorkflowStep {
   name: string;
@@ -86,7 +86,7 @@ export class HealingWorkflow {
       let brokenSelectors = 0;
 
       for (const file of pageObjectFiles) {
-        const content = readFileSync(file, 'utf-8');
+        const content = fs.readFileSync(file, 'utf-8');
         const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
 
         let match;
@@ -255,10 +255,9 @@ export class HealingWorkflow {
    * Helper: Find all page object files
    */
   private findPageObjectFiles(): string[] {
-    const fs = require('fs');
     const pageObjectsDir = path.resolve('src/page-objects');
 
-    if (!existsSync(pageObjectsDir)) {
+    if (!fs.existsSync(pageObjectsDir)) {
       return [];
     }
 

@@ -21,7 +21,15 @@ export class DOMCache {
         return null;
       }
 
-      const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8')) as CacheEntry<string>;
+      const raw = fs.readFileSync(cachePath, 'utf-8');
+      let cached: CacheEntry<string>;
+      try {
+        cached = JSON.parse(raw) as CacheEntry<string>;
+      } catch {
+        // Corrupt cache file — delete and return null
+        fs.unlinkSync(cachePath);
+        return null;
+      }
 
       // Check if cache is still valid
       if (Date.now() - cached.timestamp < CACHE_VALIDITY_MS) {
@@ -42,6 +50,7 @@ export class DOMCache {
 
       const hash = this.generateHash(url);
       const cachePath = path.join(CACHE_DIR, `${hash}.json`);
+      const tmpPath = cachePath + '.tmp';
 
       const cacheEntry: CacheEntry<string> = {
         timestamp: Date.now(),
@@ -49,9 +58,10 @@ export class DOMCache {
         hash: this.generateHash(dom),
       };
 
-      fs.writeFileSync(cachePath, JSON.stringify(cacheEntry), 'utf-8');
+      // Atomic write: write to temp file, then rename
+      fs.writeFileSync(tmpPath, JSON.stringify(cacheEntry), 'utf-8');
+      fs.renameSync(tmpPath, cachePath);
     } catch (error) {
-      // Silently fail if caching fails
       console.warn('Failed to cache DOM:', error instanceof Error ? error.message : error);
     }
   }
@@ -159,7 +169,6 @@ export class ResultCache {
   }
 
   static set<T>(key: string, value: T): void {
-    // Implement simple LRU eviction if cache is too large
     if (ResultCache.cache.size >= ResultCache.MAX_MEMORY_ENTRIES) {
       const firstKey = ResultCache.cache.keys().next().value;
       ResultCache.cache.delete(firstKey);

@@ -11,6 +11,7 @@ try {
 import * as path from 'path';
 import { existsSync } from 'fs';
 import { execSync } from 'child_process';
+import { quote } from 'shell-quote';
 import { TestGenerationService } from './services/TestGenerationService';
 import { TestRunnerService } from './services/TestRunnerService';
 import { SelectorValidationService } from './services/SelectorValidationService';
@@ -151,17 +152,19 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
       .map((f) => `src/features/${f.featureName.toLowerCase().replace(/\s+/g, '_')}.feature`)
       .filter((f, index, arr) => arr.indexOf(f) === index);
 
-    const wdioCommand = [
-      'npx wdio run ./wdio.conf.ts',
-      failedFeatures.map((f) => `--spec ${path.resolve(f)}`).join(' '),
-      `--mochaOpts.timeout ${config.testTimeout || TIMEOUTS.DEFAULT_TEST_TIMEOUT}`,
-      '--specFileRetries 1',
-    ].join(' ');
+    const specArgs = failedFeatures.flatMap((f) => ['--spec', path.resolve(f)]);
+    const timeout = String(config.testTimeout || TIMEOUTS.DEFAULT_TEST_TIMEOUT);
+    const wdioArgs = [
+      'run', './wdio.conf.ts',
+      ...specArgs,
+      '--mochaOpts.timeout', timeout,
+      '--specFileRetries', '1',
+    ];
 
-    console.log(`🚀 Test command: ${wdioCommand}`);
+    console.log(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
 
     try {
-      execSync(wdioCommand, { stdio: 'inherit' });
+      execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
       console.log('\n✅ Failed tests re-run completed successfully!');
       TestFailureTracker.clearFailures();
     } catch (error) {

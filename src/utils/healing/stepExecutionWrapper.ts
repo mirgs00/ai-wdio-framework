@@ -1,6 +1,12 @@
 import { browser } from '@wdio/globals';
-import pageContextManager from '../../page-objects/pageContextManager';
 import { selfHealingService, HealingContext } from './selfHealingService';
+
+let pageContextManager: any = null;
+try {
+  pageContextManager = require('../../page-objects/pageContextManager').default;
+} catch {
+  // pageContextManager may not exist if page objects haven't been generated
+}
 
 export interface StepExecutionOptions {
   stepText: string;
@@ -79,6 +85,7 @@ export async function executeStepWithHealing<T>(
  * Get current page name from page context manager
  */
 function getCurrentPageName(): string {
+  if (!pageContextManager) return 'unknown';
   try {
     const currentPage = pageContextManager.getCurrentPage();
     const pages = pageContextManager.getAllPages();

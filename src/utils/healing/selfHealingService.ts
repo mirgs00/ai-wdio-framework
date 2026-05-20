@@ -1,10 +1,9 @@
 import { browser, $ } from '@wdio/globals';
-import { readFileSync, writeFileSync } from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { createOllamaClient } from '../ai/ollamaClient';
 import { analyzeDOM } from '../dom/domAnalyzer';
 import { discoverElementsFromDOM, DiscoveredElement } from '../dom/discoverElementsFromDOM';
-import * as fs from 'fs';
 
 export interface HealingContext {
   stepText: string;
@@ -84,12 +83,14 @@ class SelfHealingService {
   }
 
   /**
-   * Get current page DOM
+   * Get current page DOM (truncated to prevent token overflow)
    */
-  private async getCurrentDOM(): Promise<string> {
-    return await browser.execute(() => {
+  private async getCurrentDOM(maxLength: number = 10000): Promise<string> {
+    const dom = await browser.execute(() => {
       return document.documentElement.outerHTML;
     });
+    if (dom.length <= maxLength) return dom;
+    return dom.slice(0, maxLength) + '\n<!-- ... truncated ... -->';
   }
 
   /**
@@ -100,17 +101,18 @@ class SelfHealingService {
     pageAnalysis: any,
     discoveredElements: DiscoveredElement[]
   ): Promise<HealingResult> {
-    const ollamaClient = createOllamaClient();
+    try {
+      const ollamaClient = createOllamaClient();
 
-    const elementsSummary = discoveredElements
-      .slice(0, 20) // Limit to prevent token overflow
-      .map(
-        (el) =>
-          `- ${el.tag}${el.id ? '#' + el.id : ''}${el.name ? '[name=' + el.name + ']' : ''}: "${el.text || el.placeholder || ''}" (selector: ${el.selector})`
-      )
-      .join('\n');
+      const elementsSummary = discoveredElements
+        .slice(0, 20) // Limit to prevent token overflow
+        .map(
+          (el) =>
+            `- ${el.tag}${el.id ? '#' + el.id : ''}${el.name ? '[name=' + el.name + ']' : ''}: "${el.text || el.placeholder || ''}" (selector: ${el.selector})`
+        )
+        .join('\n');
 
-    const prompt = `You are a test automation expert. A Selenium/WebdriverIO step failed.
+      const prompt = `You are a test automation expert. A Selenium/WebdriverIO step failed.
 
 **Original Step (Natural Language):**
 "${context.stepText}"
@@ -140,7 +142,6 @@ SELECTOR: your-css-selector-here
 REASON: one line explanation
 ELEMENT_TYPE: input|button|text|heading|link|other`;
 
-    try {
       const response = await ollamaClient.prompt({
         prompt,
         systemPrompt:
@@ -296,7 +297,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
     );
 
     try {
-      let content = readFileSync(pageObjectPath, 'utf-8');
+      let content = fs.readFileSync(pageObjectPath, 'utf-8');
 
       // Find the getter and update its selector
       const getterPattern = new RegExp(

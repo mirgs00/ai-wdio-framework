@@ -1,8 +1,4 @@
-try {
-  require('dotenv/config');
-} catch {
-  // dotenv may not be available
-}
+import 'dotenv/config';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';
@@ -576,17 +572,17 @@ function generateFallbackImplementation(
 
     const usernameSelector = usernameEl
       ? `'${usernameEl.selector}'`
-      : 'DEFAULT_PARAMETERS.usernameField';
+      : "'#username'";
     const passwordSelector = passwordEl
       ? `'${passwordEl.selector}'`
-      : 'DEFAULT_PARAMETERS.passwordField';
-    const submitSelector = submitEl ? `'${submitEl.selector}'` : 'DEFAULT_PARAMETERS.submit_button';
+      : "'#password'";
+    const submitSelector = submitEl ? `'${submitEl.selector}'` : "'button[type=\"submit\"]'";
 
     return `try {
-  await $(${usernameSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidUsername' : 'DEFAULT_PARAMETERS.username'});
-  await $(${passwordSelector}).setValue(${isInvalid ? 'DEFAULT_PARAMETERS.invalidPassword' : 'DEFAULT_PARAMETERS.password'});
+  await $(${usernameSelector}).setValue(${isInvalid ? "'invalid'" : "'student'"});
+  await $(${passwordSelector}).setValue(${isInvalid ? "'wrongpass'" : "'Password123'"});
   await $(${submitSelector}).click();
-  ${isInvalid ? 'await expect($(DEFAULT_PARAMETERS.errorElement)).toBeDisplayed();' : 'await expect($(DEFAULT_PARAMETERS.successElement)).toBeDisplayed();'}
+  ${isInvalid ? "await expect($('.error')).toBeDisplayed();" : "await expect($('.post-title')).toBeDisplayed();"}
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(\`Form submission failed: \${errorMessage}\`);
@@ -806,6 +802,27 @@ ${step.implementation}
   }
 
   return `${imports}${steps}`;
+}
+
+/**
+ * Generate feature content from parsed scenarios.
+ * Called by scenarioBuilder.ts after parsing Gherkin feature content.
+ */
+export async function generateStepDefinitions(
+  scenarios: Array<{ name: string; steps: Array<{ type: string; text: string }> }>,
+  _ollamaClient: OllamaClient,
+  _options?: { url?: string; applicationContext?: string }
+): Promise<string> {
+  let featureContent = 'Feature: Generated Test\n';
+
+  for (const scenario of scenarios) {
+    featureContent += `\n  Scenario: ${scenario.name}\n`;
+    for (const step of scenario.steps) {
+      featureContent += `    ${step.type} ${step.text}\n`;
+    }
+  }
+
+  return featureContent;
 }
 
 export async function buildStepDefinitions(
