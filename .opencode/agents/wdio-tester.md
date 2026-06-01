@@ -120,6 +120,32 @@ in the browser to debug specific cascading paths.
 - **Do not** guess selectors — always get them from `get_elements` or `get_accessibility_tree`
 - **Do not** use CSS/XPath directly unless returned by a tool — selectors are auto-generated
 
+## Sequential Thinking for Complex Debugging
+
+Use `sequential_thinking` when debugging non-trivial failures that require
+multi-step analysis:
+
+### When to use it
+
+- **Cascading radio failures** — trace why a radio click at depth 3 doesn't reveal
+  expected elements. Build a step-by-step hypothesis: "clicked X → expected Y to
+  appear → Z appeared instead → maybe the JS event listener is delayed"
+- **Selector breakage chains** — one broken selector may cascade across multiple
+  steps. Use sequential thinking to trace the dependency graph: "step 5 failed
+  because the button from step 3 never appeared, which failed because..."
+- **Cross-page state analysis** — when a test navigates through multiple pages
+  and state is lost, trace the state transitions to find where it dropped
+- **Flaky test diagnosis** — if a test passes 60% of the time, use sequential
+  thinking to enumerate possible race conditions, then design experiments to
+  isolate them
+
+### Workflow
+
+1. Gather evidence: DOM snapshots, screenshots, error messages
+2. Start sequential thinking with an initial hypothesis
+3. Let each thought build on the previous — revise if new evidence contradicts
+4. Once the root cause is identified, proceed with the fix
+
 ## Error Recovery
 
 - If `click_element` returns an error, call `get_elements` again — the DOM may have changed
@@ -127,3 +153,4 @@ in the browser to debug specific cascading paths.
 - If `set_value` fails, verify the element is an input via `get_elements`
 - Always close orphaned sessions with `close_session()` after failures
 - If generated tests fail, run `npm run wdio -- --rerun` or the healing workflow
+- For complex multi-step failures, use `sequential_thinking` before attempting fixes

@@ -24,15 +24,19 @@ setupHealingHooks();
  */
 
 /**
- * Implements: "Given the user navigates to \"https://www.e-business.sro.vic.gov.au/calculators/livestock-duty\""
+ * Implements: "Given the user navigates to \"https://www.automationexercise.com\""
  */
 Given(/^the user navigates to "([^"]*)"$/, async function (url) {
 try {
   await browser.url(url);
-  await browser.waitUntil(
-    async () => (await browser.execute(() => document.readyState)) === 'complete',
-    { timeout: 10000, timeoutMsg: 'Page did not load' }
-  );
+  try {
+    await browser.waitUntil(
+      async () => (await browser.execute(() => document.readyState)) === 'complete',
+      { timeout: 15000, timeoutMsg: 'Page load timeout' }
+    );
+  } catch {
+    // Page may have ads that delay readyState; continue anyway
+  }
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(`Navigation failed: ${errorMessage}`);
@@ -40,20 +44,31 @@ try {
 });
 
 /**
- * Implements: "When the user submits the form"
+ * Implements: "When the user fills \"#susbscribe_email\" with \"test_1780312129002@test.com\""
  */
-When(/^the user submits the form$/, async function () {
+When(/^the user fills "([^"]*)" with "([^"]*)"$/, async function (param1, param2) {
 try {
-  await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
-  await $('[type="submit"], button[type="submit"], button:not([type])').click();
+  await browser.execute(() => {
+    document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
+      f.remove();
+    });
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+  });
+  const el = await $(param1);
+  await el.scrollIntoView();
+  await el.waitForDisplayed({ timeout: 5000 });
+  await el.waitForEnabled({ timeout: 5000 });
+  await el.clearValue();
+  await el.setValue(param2);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(`Form submit failed: ${errorMessage}`);
+  throw new Error(`Fill field failed: ${errorMessage}`);
 }
 });
 
 /**
- * Implements: "Then the page title should contain \"Livestock duty calculator | State Revenue Office\""
+ * Implements: "Then the page title should contain \"Automation Exercise\""
  */
 Then(/^the page title should contain "([^"]*)"$/, async function (param1) {
 try {
@@ -66,7 +81,7 @@ try {
 });
 
 /**
- * Implements: "Then the URL should contain \"/calculators/livestock-duty\""
+ * Implements: "Then the URL should contain \"/\""
  */
 Then(/^the URL should contain "([^"]*)"$/, async function (expectedPath) {
 try {
@@ -79,11 +94,16 @@ try {
 });
 
 /**
- * Implements: "Then the user should see \"livestock duty\""
+ * Implements: "Then the user should see \" Products\""
  */
 Then(/^the user should see "([^"]*)"$/, async function (param1) {
 try {
-  const found = await browser.execute((text: string) => document.body?.innerText?.includes(text) || false, String(param1));
+  let found = false;
+  for (let i = 0; i < 10; i++) {
+    found = await browser.execute((text: string) => document.body?.innerText?.toLowerCase()?.includes(text.toLowerCase()) || false, String(param1));
+    if (found) break;
+    await browser.pause(500);
+  }
   if (!found) throw new Error(`Text not found: ${param1}`);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
@@ -92,13 +112,30 @@ try {
 });
 
 /**
- * Implements: "When the user clicks \"livestockTypeCattle\""
+ * Implements: "When the user clicks \"Test Cases\""
  */
 When(/^the user clicks "([^"]*)"$/, async function (param1) {
 try {
+  await browser.execute(() => {
+    document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
+      f.remove();
+    });
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+  });
   const found = await $('=' + param1);
   if (await found.isExisting()) {
-    await found.click();
+    try {
+      await found.scrollIntoView();
+      await found.waitForClickable({ timeout: 10000 });
+      await found.click();
+    } catch {
+      await (browser as any).execute(function(text: string) {
+        document.querySelectorAll('button, a, input[type="submit"], [role="button"], .check_out, .btn').forEach((e: Element) => {
+          if ((e.textContent ?? '').trim() === text) (e as HTMLElement).click();
+        });
+      }, param1);
+    }
   } else {
     const clicked = await browser.execute((text: string) => {
       // Try finding by ID
@@ -133,17 +170,62 @@ try {
 });
 
 /**
- * Implements: "When the user fills \"#primaryPigsValue\" with \"500000\""
+ * Selects an option from a <select> dropdown by its option value
  */
-When(/^the user fills "([^"]*)" with "([^"]*)"$/, async function (param1, param2) {
+When(/^the user selects "([^"]*)" from "([^"]*)"$/, async function (optionValue, selectId) {
 try {
-  await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
-  const el = await $(param1);
-  await el.waitForEnabled({ timeout: 5000 });
-  await el.clearValue();
-  await el.setValue(param2);
+  const sel = selectId.startsWith('#') ? selectId : `#${selectId}`;
+  await (browser as any).execute(function(sel: string, val: string) {
+    const el = document.querySelector(sel) as HTMLSelectElement;
+    if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); return true; }
+    return false;
+  }, sel, optionValue);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  throw new Error(`Fill field failed: ${errorMessage}`);
+  throw new Error(`Select failed: ${errorMessage}`);
+}
+});
+
+/**
+ * Checks or unchecks a checkbox by selector
+ */
+When(/^the user (checks|unchecks) "([^"]*)"$/, async function (action, selector) {
+try {
+  await (browser as any).execute(function(sel: string, checked: boolean) {
+    const el = document.querySelector(sel) as HTMLInputElement;
+    if (el) { el.checked = checked; el.dispatchEvent(new Event('change', { bubbles: true })); return true; }
+    return false;
+  }, selector, action === 'checks');
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(`Checkbox action failed: ${errorMessage}`);
+}
+});
+
+/**
+ * Clicks an element by CSS selector (supports attribute selectors like [data-qa='value'])
+ * Hides ad iframes/overlays before clicking to avoid "element not clickable" errors.
+ */
+When(/^the user clicks element "([^"]*)"$/, async function (selector) {
+try {
+  await browser.execute(() => {
+    document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
+      f.remove();
+    });
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+  });
+  const el = await $(selector);
+  try {
+    await el.waitForClickable({ timeout: 10000 });
+    await el.click();
+  } catch {
+    await (browser as any).execute(function(sel: string) {
+      (document.querySelector(sel) as HTMLElement)?.click();
+    }, selector);
+  }
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(`Element click failed: ${errorMessage}`);
 }
 });

@@ -1,0 +1,8 @@
+# projectName: Saucedemo
+# url: https://www.saucedemo.com
+# description: Full e-commerce flow: login, inventory browsing, cart, checkout
+name,description,steps,tags
+log in,Log in with standard_user credentials to access inventory,Given the user navigates to "https://www.saucedemo.com"|When the user fills "#user-name" with "standard_user"|When the user fills "#password" with "secret_sauce"|When the user clicks "#login-button"|Then the URL should contain "inventory.html",@login
+add backpack to cart,Add Sauce Labs Backpack to the shopping cart,When the user clicks "#add-to-cart-sauce-labs-backpack"|Then the shopping cart badge should show "1",@cart
+open cart,Navigate to shopping cart view,When the user clicks ".shopping_cart_link"|Then the URL should contain "cart.html",@cart
+checkout,Complete checkout flow with user details and finish,When the user clicks "#checkout"|When the user fills "#first-name" with "John"|When the user fills "#last-name" with "Doe"|When the user fills "#postal-code" with "12345"|When the user clicks "#continue"|Then the URL should contain "checkout-step-two.html"|When the user clicks "#finish"|Then the URL should contain "checkout-complete.html"|Then the user should see "Thank you for your order!",@checkout

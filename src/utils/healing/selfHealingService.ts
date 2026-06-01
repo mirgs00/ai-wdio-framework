@@ -6,6 +6,7 @@ import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wd
 import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
 import { HEALING_CONFIG } from '../constants';
 import { logger } from '../logger';
+import { healingArchivist } from './healingArchivist';
 
 export interface HealingContext {
   stepText: string;
@@ -69,6 +70,19 @@ class SelfHealingService {
 
       if (fix.newImplementation) {
         await this.updateStepDefinition(context.stepText, fix.newImplementation);
+      }
+
+      if (fix.healed) {
+        healingArchivist.recordHealing({
+          timestamp: new Date().toISOString(),
+          originalSelector: context.failedElement || context.stepText,
+          newSelector: fix.newSelector || '',
+          reason: fix.reason,
+          page: context.pageName,
+          success: true,
+          method: 'ollama',
+          duration: 0,
+        });
       }
 
       return {

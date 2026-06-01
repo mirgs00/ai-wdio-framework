@@ -4,6 +4,7 @@ import { logger } from '../logger';
 import * as path from 'path';
 import { promises as fsAsync } from 'fs';
 import type { FailedStep } from '../test-gen/rerunFailedSteps';
+import { healingArchivist } from './healingArchivist';
 
 export interface SelectorHealing {
   originalSelector: string;
@@ -146,6 +147,18 @@ export class HealingService {
         if (exists) {
           healing.healed = true;
           healing.healedSelector = alternatives[0];
+
+          healingArchivist.recordHealing({
+            timestamp: new Date().toISOString(),
+            originalSelector: selector,
+            newSelector: healing.healedSelector,
+            reason: 'Alternative selector found via fallback chain',
+            page: 'unknown',
+            success: true,
+            method: 'fallback',
+            duration: 0,
+            elementType,
+          });
 
           logger.info(`✅ Selector healed successfully`, {
             section: 'HEALING_SERVICE',

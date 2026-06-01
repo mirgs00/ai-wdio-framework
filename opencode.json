@@ -3,7 +3,32 @@
   "mcp": {
     "wdio": {
       "type": "local",
-      "command": ["npx", "-y", "@wdio/mcp@latest"],
+      "command": ["npx", "-y", "wdio-mcp"],
+      "enabled": true
+    },
+    "sequential-thinking": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "enabled": true
+    },
+    "memory": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
+      "enabled": true
+    },
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/mirgs/Documents/ai-wdio-framework"],
+      "enabled": true
+    },
+    "github": {
+      "type": "local",
+      "command": ["npx", "-y", "github-mcp-server-mcp"],
+      "enabled": true
+    },
+    "ollama": {
+      "type": "local",
+      "command": ["npx", "-y", "ollama-mcp"],
       "enabled": true
     }
   },
