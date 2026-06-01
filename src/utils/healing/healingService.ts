@@ -26,8 +26,12 @@ export interface PageSelectorHealing {
  * Detects broken selectors and attempts to fix them before tests fail
  */
 export class HealingService {
-  private pageObjectsDir: string = path.resolve('src/page-objects');
+  private pageObjectsDir: string;
   private selectorCache: Map<string, string> = new Map();
+
+  constructor(pageObjectsDir?: string) {
+    this.pageObjectsDir = pageObjectsDir || path.resolve('src/page-objects');
+  }
 
   /**
    * Pre-execution check: Validate all selectors before test runs
@@ -137,7 +141,7 @@ export class HealingService {
       if (alternatives.length > 0) {
         // Test first alternative
         const element = $(alternatives[0]);
-        const exists = await element.isExisting({ timeout: 2000 }).catch(() => false);
+        const exists = await element.isExisting().catch(() => false);
 
         if (exists) {
           healing.healed = true;
@@ -226,7 +230,7 @@ export class HealingService {
   private extractSelectors(content: string): Record<string, string> {
     const selectors: Record<string, string> = {};
 
-    const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
+    const getterRegex = /(?:public\s+)?get\s+(\w+)\s*\(\s*\)[^{]*\{\s*return\s+\$\([']([^']*)[']\)/g;
 
     let match;
     while ((match = getterRegex.exec(content)) !== null) {
@@ -262,7 +266,7 @@ export class HealingService {
             'g'
           );
 
-          content = content.replace(regex, (match) => {
+          content = content.replace(regex, (_match) => {
             updatedCount++;
             return `$1'${healing.healedSelector}'`;
           });
@@ -312,9 +316,25 @@ export class HealingService {
     const healing = await this.healBrokenSelector(selector, elementType);
 
     if (healing.healed) {
+      // Map the CSS selector to its page object getter name
+      const filePath = path.join(
+        this.pageObjectsDir,
+        `generated${this.capitalize(pageName)}Page.ts`
+      )
+      let getterName = selector
+      try {
+        const content = await fsAsync.readFile(filePath, 'utf-8')
+        const selectors = this.extractSelectors(content)
+        for (const [name, sel] of Object.entries(selectors)) {
+          if (sel === selector) { getterName = name; break }
+        }
+      } catch {
+        // If we can't map, use the selector as-is (will likely fail to match)
+      }
+
       // Update page object
       const updated = await this.updatePageObjectWithHealedSelectors(pageName, {
-        [selector]: healing,
+        [getterName]: healing,
       });
 
       return {

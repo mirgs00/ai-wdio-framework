@@ -228,7 +228,7 @@ export class SmartLocator {
     context: string
   ): Promise<LocatorStrategy | null> {
     try {
-      const currentDOM = await browser.getPageSource();
+      const _currentDOM = await browser.getPageSource();
       const elementInfo = JSON.stringify(desc, null, 2);
 
       const prompt = `Given the following page element description and current DOM structure, provide the most reliable CSS or XPath selector to find this element:

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "wdio": {
+      "type": "local",
+      "command": ["npx", "-y", "@wdio/mcp@latest"],
+      "enabled": true
+    }
+  },
+  "instructions": [".opencode/mcp-reference.md", ".zencoder/rules/repo.md"]
+}

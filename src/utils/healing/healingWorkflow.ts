@@ -58,7 +58,7 @@ export class HealingWorkflow {
     } catch (error) {
       logger.warn('Healing workflow encountered an error', {
         section: 'HEALING_WORKFLOW',
-        error: error instanceof Error ? error.message : String(error),
+        details: { error: error instanceof Error ? error.message : String(error) },
       });
 
       return this.buildWorkflowReport('failed');
@@ -87,7 +87,7 @@ export class HealingWorkflow {
 
       for (const file of pageObjectFiles) {
         const content = fs.readFileSync(file, 'utf-8');
-        const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
+        const getterRegex = /(?:public\s+)?get\s+(\w+)\s*\(\s*\)[^{]*\{\s*return\s+\$\([']([^']*)[']\)/g;
 
         let match;
         while ((match = getterRegex.exec(content)) !== null) {
@@ -103,8 +103,7 @@ export class HealingWorkflow {
             brokenSelectors++;
             logger.warn(`Invalid selector found: ${selector}`, {
               section: 'HEALING_WORKFLOW',
-              getter: getterName,
-              issues: validation.issues,
+              details: { getter: getterName, issues: validation.issues },
             });
           }
         }
@@ -162,30 +161,67 @@ export class HealingWorkflow {
       for (const failure of failureReport.failures) {
         try {
           const pageName = this.extractPageNameFromFailure(failure.featureName);
-          const healing = await this.healingService.healBrokenSelector(pageName, failure.scenario);
+          const pageObjPath = path.resolve(
+            `src/page-objects/generated${pageName.charAt(0).toUpperCase() + pageName.slice(1)}Page.ts`
+          );
 
-          if (healing && healing.healed) {
-            healedCount++;
-            healingResults.push({
-              failure: `${failure.featureName}:${failure.scenario}`,
-              healed: true,
-            });
-
-            logger.info(`Successfully healed: ${failure.scenario}`, {
+          if (!fs.existsSync(pageObjPath)) {
+            logger.warn(`Page object not found for healing: ${pageObjPath}`, {
               section: 'HEALING_WORKFLOW',
-              pageName,
-              oldSelector: healing.originalSelector,
-              newSelector: healing.healedSelector,
             });
-          } else {
             healingResults.push({
               failure: `${failure.featureName}:${failure.scenario}`,
               healed: false,
             });
+            continue;
+          }
 
-            logger.warn(`Could not heal: ${failure.scenario}`, {
+          const content = fs.readFileSync(pageObjPath, 'utf-8');
+          const getterRegex = /(?:public\s+)?get\s+(\w+)\s*\(\s*\)[^{]*\{\s*return\s+\$\([']([^']*)[']\)/g;
+          const selectors: string[] = [];
+          let match;
+          while ((match = getterRegex.exec(content)) !== null) {
+            selectors.push(match[2]);
+          }
+
+          if (selectors.length === 0) {
+            healingResults.push({
+              failure: `${failure.featureName}:${failure.scenario}`,
+              healed: false,
+            });
+            continue;
+          }
+
+          const healings: Record<string, import('./healingService').SelectorHealing> = {};
+          let pageHealedCount = 0;
+
+          for (const selector of selectors) {
+            const healing = await this.healingService.healBrokenSelector(selector);
+            healings[selector] = healing;
+            if (healing.healed) {
+              pageHealedCount++;
+            }
+          }
+
+          if (pageHealedCount > 0) {
+            await this.healingService.updatePageObjectWithHealedSelectors(pageName, healings);
+          }
+
+          healedCount += pageHealedCount;
+          healingResults.push({
+            failure: `${failure.featureName}:${failure.scenario}`,
+            healed: pageHealedCount > 0,
+          });
+
+          if (pageHealedCount > 0) {
+            logger.info(`Healed ${pageHealedCount}/${selectors.length} selectors on page ${pageName}`, {
               section: 'HEALING_WORKFLOW',
-              pageName,
+              details: { pageName, healedCount: pageHealedCount, totalSelectors: selectors.length },
+            });
+          } else {
+            logger.warn(`Could not heal any selectors on page ${pageName}`, {
+              section: 'HEALING_WORKFLOW',
+              details: { pageName },
             });
           }
         } catch (error) {
@@ -196,7 +232,7 @@ export class HealingWorkflow {
 
           logger.warn(`Error healing failure`, {
             section: 'HEALING_WORKFLOW',
-            error: error instanceof Error ? error.message : String(error),
+            details: { error: error instanceof Error ? error.message : String(error) },
           });
         }
       }
@@ -231,19 +267,25 @@ export class HealingWorkflow {
    */
   private async generateReport(): Promise<void> {
     try {
-      const report = this.healingService.generateHealingReport();
+      const preValidationStep = this.steps.find((s) => s.name === 'Pre-Execution Validation');
+      const recoveryStep = this.steps.find((s) => s.name === 'Failure Detection & Recovery');
+
+      const preDetails = preValidationStep?.details || {};
+      const recoveryDetails = recoveryStep?.details || {};
+
+      const summary = `Pre-Execution: ${String(preDetails.validSelectors || 0)}/${String(preDetails.totalSelectors || 0)} selectors valid. ` +
+        `Recovery: ${String(recoveryDetails.healed || 0)}/${String(recoveryDetails.totalFailures || 0)} failures healed.`;
 
       this.recordStep('Generate Healing Report', 'success', {
-        totalAttempts: report.totalAttempts,
-        successfulHeals: report.successfulHeals,
-        failedHeals: report.failedHeals,
-        successRate: report.successRate,
+        totalValidSelectors: preDetails.validSelectors || 0,
+        totalBrokenSelectors: preDetails.brokenSelectors || 0,
+        totalFailures: recoveryDetails.totalFailures || 0,
+        healedCount: recoveryDetails.healed || 0,
+        stillBroken: recoveryDetails.stillBroken || 0,
+        summary,
       });
 
-      logger.info('Healing report generated', {
-        section: 'HEALING_WORKFLOW',
-        ...report,
-      });
+      logger.info('Healing report generated', { section: 'HEALING_WORKFLOW', details: { summary } });
     } catch (error) {
       this.recordStep('Generate Healing Report', 'failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -337,22 +379,22 @@ export class HealingWorkflow {
     const endTime = Date.now();
     const duration = endTime - this.startTime;
 
-    const preValidationStep = this.steps.find((s) => s.name === 'Pre-Execution Validation');
-    const recoveryStep = this.steps.find((s) => s.name === 'Failure Detection & Recovery');
+    const preValidationStep = [...this.steps].reverse().find((s) => s.name === 'Pre-Execution Validation');
+    const recoveryStep = [...this.steps].reverse().find((s) => s.name === 'Failure Detection & Recovery');
 
-    const preExecution = preValidationStep?.details || {
+    const preExecution = (preValidationStep?.details || {
       totalSelectors: 0,
       validSelectors: 0,
       brokenSelectors: 0,
       successRate: 0,
-    };
+    }) as HealingWorkflowReport['preExecutionValidation'];
 
-    const recovery = recoveryStep?.details || {
+    const recovery = (recoveryStep?.details || {
       totalFailures: 0,
       healed: 0,
       stillBroken: 0,
       successRate: 0,
-    };
+    }) as HealingWorkflowReport['failureRecovery'];
 
     const overallSuccessRate = (preExecution.successRate + recovery.successRate) / 2;
 

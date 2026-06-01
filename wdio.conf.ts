@@ -28,7 +28,7 @@ export const config: WebdriverIO.Config = {
     // of the config file unless it's absolute.
     //
     specs: [
-        './src/features/**/*.feature'
+        'src/features/**/*.feature'
     ],
     // Patterns to exclude.
     exclude: [
@@ -57,7 +57,7 @@ export const config: WebdriverIO.Config = {
     // https://saucelabs.com/platform/platform-configurator
     //
     capabilities: [{
-        browserName: 'chrome'
+        browserName: 'firefox'
     }],
 
     //

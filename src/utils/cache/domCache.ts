@@ -1,9 +1,10 @@
 import crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CACHE_CONFIG } from '../constants';
 
-const CACHE_DIR = path.join(process.cwd(), '.cache');
-const CACHE_VALIDITY_MS = 3600000; // 1 hour
+const CACHE_DIR = path.join(process.cwd(), CACHE_CONFIG.DIR);
+const CACHE_VALIDITY_MS = CACHE_CONFIG.VALIDITY_MS;
 
 export interface CacheEntry<T = unknown> {
   timestamp: number;
@@ -47,6 +48,9 @@ export class DOMCache {
   static async cacheDOM(url: string, dom: string): Promise<void> {
     try {
       this.ensureCacheDir();
+
+      // Enforce filesystem entry limit
+      this.enforceMaxEntries();
 
       const hash = this.generateHash(url);
       const cachePath = path.join(CACHE_DIR, `${hash}.json`);
@@ -112,6 +116,25 @@ export class DOMCache {
     }
   }
 
+  private static enforceMaxEntries(): void {
+    try {
+      if (!fs.existsSync(CACHE_DIR)) return;
+      const files = fs.readdirSync(CACHE_DIR);
+      if (files.length >= CACHE_CONFIG.MAX_FILESYSTEM_ENTRIES) {
+        // Sort by mtime oldest first and delete oldest
+        const sorted = files
+          .map((f) => ({ name: f, time: fs.statSync(path.join(CACHE_DIR, f)).mtimeMs }))
+          .sort((a, b) => a.time - b.time);
+        const toDelete = sorted.slice(0, sorted.length - CACHE_CONFIG.MAX_FILESYSTEM_ENTRIES + 1);
+        for (const file of toDelete) {
+          fs.unlinkSync(path.join(CACHE_DIR, file.name));
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to enforce cache max entries:', error instanceof Error ? error.message : error);
+    }
+  }
+
   static getCacheStats(): {
     totalFiles: number;
     totalSize: number;
@@ -150,7 +173,7 @@ export class DOMCache {
 
 export class ResultCache {
   private static cache: Map<string, CacheEntry> = new Map();
-  private static readonly MAX_MEMORY_ENTRIES = 50;
+  private static readonly MAX_MEMORY_ENTRIES = CACHE_CONFIG.MAX_MEMORY_ENTRIES;
 
   static get<T>(key: string): T | null {
     const entry = ResultCache.cache.get(key);
@@ -171,7 +194,9 @@ export class ResultCache {
   static set<T>(key: string, value: T): void {
     if (ResultCache.cache.size >= ResultCache.MAX_MEMORY_ENTRIES) {
       const firstKey = ResultCache.cache.keys().next().value;
-      ResultCache.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        ResultCache.cache.delete(firstKey);
+      }
     }
 
     ResultCache.cache.set(key, {

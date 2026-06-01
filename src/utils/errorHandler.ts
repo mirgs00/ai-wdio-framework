@@ -1,13 +1,14 @@
 import { logger } from './logger';
+import { AiFrameworkError } from './errors';
 
-export class AppError extends Error {
+export class AppError extends AiFrameworkError {
   constructor(
     message: string,
-    public code: string = 'INTERNAL_ERROR',
+    code: string = 'INTERNAL_ERROR',
     public statusCode: number = 500,
     public originalError?: Error
   ) {
-    super(message);
+    super(message, code);
     this.name = 'AppError';
   }
 }
@@ -16,6 +17,12 @@ export function handleError(error: unknown, context: string = ''): AppError {
   if (error instanceof AppError) {
     logger.error(`${context}: ${error.message}`, error.originalError);
     return error;
+  }
+
+  if (error instanceof AiFrameworkError) {
+    const appError = new AppError(error.message, error.code, 500);
+    logger.error(`${context}: ${error.message}`);
+    return appError;
   }
 
   if (error instanceof Error) {

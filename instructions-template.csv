@@ -1,0 +1,7 @@
+# projectName: search results
+# url: https://google.com
+# description: Test search for Speedtest by Ookla - The Global Broadband Speed Test
+
+name,description,steps,tags
+Successful output,User should be able to search for a Speedtest,"User navigates to Google homepage|User enters 'Speedtest by Ookla' in the search box|User clicks the search button|User sees search results","happy-path,positive"
+Failed Search,System should display no results for invalid search terms,"User navigates to Google homepage|User enters 'invalidsearchterm' in the search box|User clicks the search button|User sees no results",negative

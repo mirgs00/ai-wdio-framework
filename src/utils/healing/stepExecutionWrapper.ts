@@ -31,11 +31,11 @@ export async function executeStepWithHealing<T>(
   } = options;
 
   let lastError: Error | null = null;
-  let attemptCount = 0;
+  const _attemptCount = 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      attemptCount = attempt;
+      const _attemptCount = attempt;
       console.log(`▶️  Executing step (attempt ${attempt + 1}/${maxRetries + 1}): "${stepText}"`);
       return await stepFn();
     } catch (error) {

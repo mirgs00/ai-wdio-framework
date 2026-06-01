@@ -41,7 +41,7 @@ export class SelectorValidationService {
         const url = urlMatch ? urlMatch[1] : undefined;
 
         // Extract all getter methods and their selectors
-        const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
+        const getterRegex = /(?:public\s+)?get\s+(\w+)\s*\(\s*\)[^{]*\{\s*return\s+\$\([']([^']*)[']\)/g;
         const selectors: Record<string, string> = {};
 
         let match;

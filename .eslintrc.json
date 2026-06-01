@@ -1,6 +1,7 @@
 {
   "env": {
     "node": true,
+    "browser": true,
     "es2020": true
   },
   "extends": [
@@ -9,11 +10,16 @@
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": 2020,
-    "sourceType": "module"
+    "sourceType": "module",
+    "project": "./tsconfig.json"
   },
   "plugins": [
     "@typescript-eslint"
   ],
+  "ignorePatterns": ["**/*.test.ts", "**/*.spec.ts", "**/*.feature"],
+  "globals": {
+    "WebdriverIO": "readonly"
+  },
   "rules": {
     "no-console": "off",
     "no-unused-vars": "off",
@@ -24,7 +30,7 @@
         "varsIgnorePattern": "^_"
       }
     ],
-    "@typescript-eslint/explicit-function-return-types": [
+    "@typescript-eslint/explicit-function-return-type": [
       "warn",
       {
         "allowExpressions": true,

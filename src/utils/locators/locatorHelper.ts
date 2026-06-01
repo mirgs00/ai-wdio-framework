@@ -1,5 +1,5 @@
 import { browser, $ } from '@wdio/globals';
-import { smartLocator, ElementDescription, LocatorStrategy } from './smartLocator';
+import { smartLocator, ElementDescription } from './smartLocator';
 import { logger } from '../logger';
 
 export interface SmartElementOptions {
@@ -282,21 +282,21 @@ export class LocatorHelper {
     timeout: number = 10000,
     options: SmartElementOptions = {}
   ): Promise<void> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-      try {
-        if (await this.textContains(description, expectedText, { ...options, waitTime: 1000 })) {
-          logger.debug(`Element text contains "${expectedText}"`);
-          return;
+    await browser.waitUntil(
+      async () => {
+        try {
+          return await this.textContains(description, expectedText, { ...options, waitTime: 1000 });
+        } catch {
+          return false;
         }
-      } catch (e) {
-        // Continue waiting
+      },
+      {
+        timeout,
+        timeoutMsg: `Element text did not contain "${expectedText}" within ${timeout}ms`,
+        interval: 500,
       }
-      await browser.pause(500);
-    }
-
-    throw new Error(`Element text did not contain "${expectedText}" within ${timeout}ms`);
+    );
+    logger.debug(`Element text contains "${expectedText}"`);
   }
 }
 

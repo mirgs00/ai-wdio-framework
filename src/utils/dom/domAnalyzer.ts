@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { load } from 'cheerio';
 
 export interface FormField {
@@ -185,6 +186,8 @@ function extractInputFields($: any): FormField[] {
     const id = $field.attr('id');
     const name = $field.attr('name') || id || '';
     const selector = id ? `#${id}` : name ? `[name="${name}"]` : '';
+
+    if (type === 'hidden') return;
 
     if (selector && !seen.has(selector)) {
       seen.add(selector);
@@ -686,5 +689,20 @@ function generateSuggestedScenarios(
   }
 
   return Array.from(new Set(scenarios)).slice(0, 10);
+}
+
+const memoCache = new Map<string, PageAnalysis>();
+
+export function analyzeDOMWithCache(html: string): PageAnalysis {
+  const key = crypto.createHash('sha256').update(html).digest('hex');
+  const cached = memoCache.get(key);
+  if (cached) return cached;
+  const analysis = analyzeDOM(html);
+  if (memoCache.size > 50) {
+    const firstKey = memoCache.keys().next().value;
+    if (firstKey) memoCache.delete(firstKey);
+  }
+  memoCache.set(key, analysis);
+  return analysis;
 }
 

@@ -18,7 +18,7 @@ export async function waitForSelector(
       timeoutMsg: `Selector not found: ${selector}${stepName ? ` (step: ${stepName})` : ''}`,
     });
 
-    return element;
+    return element as unknown as WebdriverIO.Element;
   } catch (error) {
     logger.error(
       `Failed to find selector${stepName ? ` for step: ${stepName}` : ''}`,
@@ -80,7 +80,7 @@ export async function safeIsDisplayed(selector: string, stepName?: string): Prom
     const element = $(selector);
 
     // First check if element exists
-    const exists = await element.isExisting({ timeout: 2000 });
+    const exists = await element.isExisting();
     if (!exists) {
       logger.warn(`Element does not exist${stepName ? ` (step: ${stepName})` : ''}`, {
         section: 'SELECTOR_CHECK',
@@ -139,11 +139,11 @@ export async function trySelectorVariants(
  */
 export async function validateSelectorExists(
   selector: string,
-  timeout: number = 3000
+  _timeout: number = 3000
 ): Promise<boolean> {
   try {
     const element = $(selector);
-    return await element.isExisting({ timeout });
+    return await element.isExisting();
   } catch {
     return false;
   }

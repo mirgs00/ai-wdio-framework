@@ -1,54 +1,9 @@
 import { LLMClient, LLMSuggestion } from './LLMClient';
 import { PageObjectModel } from './PageObjectModel';
 import { browser } from '@wdio/globals';
-
-// --- 1. Intelligent Context Gathering ---
-
-/**
- * Executes JavaScript in the browser to gather a structurally relevant DOM snippet.
- * @param failedLocator The value of the locator that failed.
- * @param semanticPurpose The semantic description of the element.
- * @returns A promise resolving to the cleaned, structural DOM context string.
- */
-async function getIntelligentDomContext(
-    failedLocator: string,
-    semanticPurpose: string
-): Promise<string> {
-    // 2. Execute the script in the browser, passing values as arguments (prevents injection)
-    const rawDomContext = await browser.execute(
-        function (failedLocator: string, semanticPurpose: string) {
-            const approxElement =
-                document.querySelector(`[id="${failedLocator}"]`) ||
-                document.querySelector(`[data-test-id="${failedLocator}"]`) ||
-                document.querySelector('body');
-
-            let context = '';
-            let current = approxElement;
-            let limit = 3;
-
-            while (current && limit > 0) {
-                context = current.outerHTML + '\n' + context;
-                current = current.parentElement;
-                limit--;
-            }
-            return context;
-        },
-        failedLocator,
-        semanticPurpose
-    );
-
-    // 3. Attribute Filtering (Pre-processing to remove noise)
-    let cleanedContext = rawDomContext as string;
-
-    // Regex to remove common dynamic/irrelevant attributes (e.g., React/Vue hashes, session IDs)
-    const dynamicAttrRegex = /((?:style|class)="[^"]*?\d{4,}[^"]*?"|data-session-id="[^"]*"|data-reactid="[^"]*")/g;
-    cleanedContext = cleanedContext.replace(dynamicAttrRegex, '');
-
-    // Further cleaning: remove excessive whitespace and newlines
-    cleanedContext = cleanedContext.replace(/\s+/g, ' ').trim();
-
-    return cleanedContext;
-}
+import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wdio/mcp/snapshot';
+import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
+import { logger } from '../logger';
 
 // --- 2. SelfHealingLocator Implementation ---
 
@@ -67,8 +22,8 @@ export class SelfHealingLocator {
         try {
             // 1. Check for Uniqueness
             const elements = await browser.$$(locator);
-            if (elements.length !== 1) {
-                console.warn(`[Heal Validate] Locator is not unique. Found ${elements.length} elements.`);
+            if ((await elements.length) !== 1) {
+                logger.warn(`[Heal Validate] Locator is not unique. Found ${elements.length} elements.`);
                 return false;
             }
 
@@ -76,17 +31,62 @@ export class SelfHealingLocator {
 
             // 2. Check for Visibility and Interactability
             if (!(await element.isDisplayed()) || !(await element.isEnabled())) {
-                console.warn(`[Heal Validate] Locator is unique but element is not displayed or enabled.`);
+                logger.warn(`[Heal Validate] Locator is unique but element is not displayed or enabled.`);
                 return false;
             }
 
-            console.log(`[Heal Validate] Locator '${locator}' is unique and visible.`);
+            logger.info(`[Heal Validate] Locator '${locator}' is unique and visible.`);
             return true;
 
         } catch (error) {
-            console.error(`[Heal Validate] Validation failed for locator '${locator}':`, error);
+            logger.error(`[Heal Validate] Validation failed for locator '${locator}'`, error);
             return false;
         }
+    }
+
+    /**
+     * Gather page context using MCP snapshot for rich LLM input
+     */
+    private async getMCPContext(_failedLocator: string): Promise<string> {
+        try {
+            const elements = await getInteractableBrowserElements(browser);
+            const tree = await getBrowserAccessibilityTree(browser);
+
+            const elementsSummary = elements
+                .slice(0, 30)
+                .map(
+                    (el: BrowserElementInfo) =>
+                        `- <${el.tagName}>${el.name ? ` name="${el.name}"` : ''}${el.type ? ` type="${el.type}"` : ''} (selector: ${el.selector})${el.isInViewport ? '' : ' [outside viewport]'}`
+                )
+                .join('\n');
+
+            const treeSummary = tree
+                .slice(0, 15)
+                .map((n: AccessibilityNode) => `- [${n.role}] "${n.name}" (selector: ${n.selector})`)
+                .join('\n');
+
+            return `**Interactable Elements (via MCP snapshot):**\n${elementsSummary}\n\n**Accessibility Tree:**\n${treeSummary}`;
+        } catch (error) {
+            logger.warn(`[SelfHealingLocator] MCP context gathering failed: ${error instanceof Error ? error.message : error}, using fallback`);
+            return '**Page context unavailable** — unable to gather interactable elements or accessibility tree.';
+        }
+    }
+
+    /**
+     * Retry wrapper for MCP snapshot calls with short delay.
+     */
+    private async getMCPContextWithRetry(failedLocator: string, retries: number = 1): Promise<string> {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const context = await this.getMCPContext(failedLocator);
+            if (context && !context.includes('**Page context unavailable**')) {
+                return context;
+            }
+            if (attempt < retries) {
+                logger.info('[SelfHealingLocator] Retrying MCP context gathering...');
+                await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+        }
+        return '**Page context unavailable** — unable to gather interactable elements or accessibility tree.';
     }
 
     /**
@@ -96,30 +96,30 @@ export class SelfHealingLocator {
      * @returns True if healing was successful and the test step can be retried.
      */
     public async attemptHeal(elementName: string, failedLocator: string): Promise<boolean> {
-        console.log(`\n--- [HEALING START] Attempting to heal '${elementName}' (Failed: ${failedLocator}) ---`);
+        logger.info(`[HEALING START] Attempting to heal '${elementName}' (Failed: ${failedLocator})`);
         
         const locatorData = this.pom.locators[elementName];
         if (!locatorData) {
-            console.error(`[HEALING FAILED] Element '${elementName}' not found in POM. Cannot heal.`);
+            logger.error(`[HEALING FAILED] Element '${elementName}' not found in POM. Cannot heal.`);
             return false;
         }
 
-        // 1. Context Gathering (Intelligent Strategy)
-        const domContext = await getIntelligentDomContext(failedLocator, locatorData.semanticPurpose);
+        // 1. Context Gathering via MCP snapshot (all interactable elements + accessibility tree)
+        const pageContext = await this.getMCPContextWithRetry(failedLocator);
         
-        // 2. LLM Invocation with Resilience
+        // 2. LLM Invocation with Resilience — pass richer context
         const llmSuggestion = await this.llmClient.requestNewLocator(
             failedLocator,
-            domContext,
+            pageContext,
             locatorData.semanticPurpose
         );
         
         if (!llmSuggestion) {
-            console.error("[HEALING FAILED] LLM did not return a valid suggestion after all retries.");
+            logger.error("[HEALING FAILED] LLM did not return a valid suggestion after all retries.");
             return false;
         }
 
-        console.log(`[LLM SUGGESTION] New Locator: ${llmSuggestion.newLocator} (${llmSuggestion.locatorType}). Reason: ${llmSuggestion.reasoning}`);
+        logger.info(`[LLM SUGGESTION] New Locator: ${llmSuggestion.newLocator} (${llmSuggestion.locatorType}). Reason: ${llmSuggestion.reasoning}`);
 
         // 3. Locator Validation
         const isValid = await this._validateLocator(llmSuggestion);
@@ -129,12 +129,12 @@ export class SelfHealingLocator {
             const isHealed = await this.pom.updateLocator(elementName, llmSuggestion);
             
             if (isHealed) {
-                console.log(`\n*** [HEALING SUCCESS] Locator healed. Test step can be retried. ***`);
+                logger.info(`[HEALING SUCCESS] Locator healed. Test step can be retried.`);
                 return true;
             }
         }
         
-        console.error("[HEALING FAILED] Validation failed or file persistence failed.");
+        logger.error("[HEALING FAILED] Validation failed or file persistence failed.");
         return false;
     }
 }

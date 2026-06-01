@@ -1,6 +1,7 @@
 import { LLMClient } from 'utils/ai/LLMClient';
 import { PageObjectModel } from 'utils/ai/PageObjectModel';
 import { SelfHealingLocator } from 'utils/ai/SelfHealingLocator';
+import { OllamaClient } from 'utils/ai/ollamaClient';
 import { browser } from '@wdio/globals';
 
 // --- 1. Initialization ---
@@ -9,7 +10,7 @@ import { browser } from '@wdio/globals';
 const PAGE_OBJECT_FILE_PATH = './src/page-objects/generatedPage.ts'; 
 
 // Initialize Core Components
-const llmClient = new LLMClient();
+const llmClient = new LLMClient(new OllamaClient());
 const pom = new PageObjectModel(PAGE_OBJECT_FILE_PATH); 
 const selfHealingLocator = new SelfHealingLocator(llmClient, pom);
 
@@ -45,15 +46,14 @@ browser.addCommand('healableFind', async function (elementName: string): Promise
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-            const element = browser.$(currentLocator);
+            const element = await browser.$(currentLocator) as unknown as WebdriverIO.Element;
             await element.waitForExist({ timeout: 5000 });
-            const resolved = await element.getElement();
-            return resolved;
+            return element;
 
         } catch (error: unknown) {
             // 2. Intercept Element Not Found Error
             // WebdriverIO throws a specific error when an element is not found.
-            const err = error as any;
+            const err = error as { name?: string; message?: string };
             if (err.name === 'ElementNotFound' || err.name === 'TimeoutError') {
                 if (attempt === 1) {
                     console.warn(`[HealableFind] Element '${elementName}' failed on first attempt with locator: ${currentLocator}. Triggering self-healing...`);

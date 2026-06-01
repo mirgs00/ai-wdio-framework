@@ -89,7 +89,7 @@ export class EnhancedSelectorGenerator {
   /**
    * Returns type-specific fallback selectors
    */
-  private static getTypeSpecificFallbacks(elementType: string, primarySelector: string): string[] {
+  private static getTypeSpecificFallbacks(elementType: string, _primarySelector: string): string[] {
     const fallbacks: string[] = [];
 
     switch (elementType) {
@@ -145,7 +145,7 @@ export class EnhancedSelectorGenerator {
    */
   private static generateAttributeFallbacks(
     primarySelector: string,
-    description: string
+    _description: string
   ): string[] {
     const fallbacks: string[] = [];
 
@@ -191,7 +191,7 @@ export class EnhancedSelectorGenerator {
   ): string {
     // If selector has been validated multiple times, it's likely stable
     if (validationAttempts > 2) {
-      logger.logElementDiscovery(originalSelector, true, {
+      logger.logElementDiscovery(originalSelector, [], {
         description,
         validationAttempts,
         quality: 'high',

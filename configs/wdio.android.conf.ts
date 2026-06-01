@@ -12,7 +12,8 @@ export const config = {
         'appium:autoGrantPermissions': true
     }],
     cucumberOpts: {
-        timeout: 60000
+        ...baseConfig.cucumberOpts,
+        timeout: 60000,
 },
     services: [
         ['appium', { command: 'appium' }]

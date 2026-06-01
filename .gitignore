@@ -1,6 +1,17 @@
 node_modules
 coverage/
+build/
+apps/
+bun.lock
+commit_message.txt
 *.log
 *ANALYSIS*.md
 *analysis*.md
+*DIAGRAM*.md
+*SUMMARY*.md
+*GUIDE*.md
+*EXAMPLES*.md
+IMPROVEMENTS.md
 package-lock.json
+.env
+explorations/

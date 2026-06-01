@@ -77,4 +77,11 @@ export class InputValidator {
 
     return timeoutNum;
   }
+
+  static validateInstruction(instruction: string): boolean {
+    if (!instruction || instruction.trim().length === 0) {
+      throw new ValidationError('Instruction cannot be empty');
+    }
+    return true;
+  }
 }

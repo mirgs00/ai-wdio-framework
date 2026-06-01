@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 // Load environment variables from .env file
-let dotenv: any;
+let dotenv: { config: () => void };
 try {
   dotenv = require('dotenv');
   dotenv.config();
@@ -9,11 +9,11 @@ try {
 }
 
 import * as path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { quote } from 'shell-quote';
-import { TestGenerationService } from './services/TestGenerationService';
 import { TestRunnerService } from './services/TestRunnerService';
+import { TestGenerationService } from './services/TestGenerationService';
 import { SelectorValidationService } from './services/SelectorValidationService';
 import { validateEnvironment } from './utils/environment';
 import { parseArgs } from './utils/args';
@@ -24,6 +24,10 @@ import { DuplicateGetterDetector } from './utils/test-gen/duplicateGetterDetecto
 import { HealingWorkflow } from './utils/healing/healingWorkflow';
 import { rerunFailedStepsService } from './utils/test-gen/rerunFailedSteps';
 import { TIMEOUTS } from './utils/constants';
+import { discoverAndGenerate } from './utils/flow-matrix/flowMatrixBuilder';
+import { buildPageObjectsFromStates } from './utils/test-gen/pageObjectBuilder';
+import { generateStepDefsFromMatrixScenarios } from './utils/test-gen/stepDefinitionBuilder';
+import { OllamaClient } from './utils/ai/ollamaClient';
 
 // Services
 const testGenerationService = new TestGenerationService();
@@ -133,18 +137,18 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
       console.log(`  ${index + 1}. ${failure.featureName} > ${failure.scenario}`);
     });
 
-    const instructionsPath = 'instructions.json';
+    const instructionsPath = 'instructions-template.csv';
 
     if (!existsSync(instructionsPath)) {
       console.error('\n❌ Instructions file not found. Cannot re-run failed tests.');
       console.error(
-        '   Please run test generation first with: ts-node src/cli.ts --instructions instructions.json'
+        '   Please run test generation first with: ts-node src/cli.ts --instructions instructions-template.csv'
       );
       process.exit(1);
     }
 
     console.log('\n🔄 Re-generating test artifacts from instructions...');
-    const { featureFilePath } = await testGenerationService.generateArtifactsFromInstructions(instructionsPath, config);
+    const { featureFilePath: _featureFilePath } = await testGenerationService.generateArtifactsFromInstructions(instructionsPath, config);
 
     console.log('\n🧪 Re-running failed tests...');
 
@@ -193,7 +197,31 @@ async function rerunFailedStepsWithHealing(): Promise<void> {
   }
 }
 
-async function main() {
+function buildFeatureFile(
+  scenarios: { tags: string[]; name: string; steps: string[] }[],
+  url: string
+): string {
+  const hostname = new URL(url).hostname
+  const lines: string[] = []
+  lines.push(`Feature: Flow Matrix Discovery for ${hostname}`)
+  lines.push(`  Automatically discovered scenarios via live browser exploration of ${url}`)
+  lines.push('')
+
+  for (const scenario of scenarios) {
+    if (scenario.tags.length > 0) {
+      lines.push(`  ${scenario.tags.map((t) => (t.startsWith('@') ? t : `@${t}`)).join(' ')}`)
+    }
+    lines.push(`  Scenario: ${scenario.name}`)
+    for (const step of scenario.steps) {
+      lines.push(`    ${step}`)
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n')
+}
+
+async function main(): Promise<void> {
   const parsedArgs = parseArgs(process.argv.slice(2));
   const shouldRunTests = parsedArgs['run'] !== false;
   const shouldValidate = parsedArgs['validate'];
@@ -249,69 +277,40 @@ async function main() {
 
     validateEnvironment();
 
-    // Check if using instructions file
-    if (parsedArgs['instructions']) {
-      const instructionsPath =
-        typeof parsedArgs['instructions'] === 'string'
-          ? parsedArgs['instructions']
-          : 'instructions.json';
+    const url = typeof parsedArgs['url'] === 'string' ? parsedArgs['url'] : undefined;
 
-      console.log(
-        [
-          `🚀 Starting AI-powered test generation from instructions`,
-          `📄 Instructions file: ${instructionsPath}`,
-          `🤖 Model: ${config.ollamaModel || 'llama3'}`,
-          `⏱️ Timeout: ${config.testTimeout}ms`,
-          `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
-          `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,
-        ].join('\n')
-      );
-
-      const { featureFilePath } = await testGenerationService.generateArtifactsFromInstructions(
-        instructionsPath,
-        config
-      );
-
-      if (shouldRunTests) {
-        testRunnerService.runTests(featureFilePath, config.testTimeout);
-      } else {
-        console.log('\n⏭️ Skipping test execution (--no-run flag set)');
-      }
-    } else {
-      // Original URL + instruction mode
-      const [url, ...instructionParts] = process.argv
-        .slice(2)
-        .filter((arg) => !arg.startsWith('--'));
-
-      if (!url || instructionParts.length === 0) {
+    if (!url && !parsedArgs['instructions']) {
+      const [firstArg] = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
+      if (!firstArg) {
         console.error(
           [
             '❌ Usage:',
-            '  Mode 1 - URL + Instruction:',
-            '    ts-node src/cli.ts <url> "<test instruction>" [options]',
+            '  Mode 1 - URL (auto-discover flow matrix):',
+            '    ts-node src/cli.ts <url> [options]',
             '',
-            '  Mode 2 - Instructions file:',
-            '    ts-node src/cli.ts --instructions [<path>] [options]',
-            '',
-            '  Mode 3 - Validate Selectors:',
+            '  Mode 2 - Validate Selectors:',
             '    ts-node src/cli.ts --validate',
             '',
-            '  Mode 4 - Re-run Failed Tests:',
+            '  Mode 3 - Re-run Failed Tests:',
             '    ts-node src/cli.ts --rerun [options]',
             '',
-            '  Mode 5 - Rerun Failed Steps with Healing:',
+            '  Mode 4 - Rerun Failed Steps with Healing:',
             '    ts-node src/cli.ts --rerun-steps',
             '',
-            '  Mode 6 - Check Duplicate Getters:',
+            '  Mode 5 - Check Duplicate Getters:',
             '    ts-node src/cli.ts --check-duplicates [--fix]',
             '',
-            '  Mode 7 - Run Healing Workflow:',
+            '  Mode 6 - Run Healing Workflow:',
             '    ts-node src/cli.ts --healing',
             '',
             'Options:',
             '  --model <model>      Ollama model to use (default: llama3)',
             '  --timeout <ms>       Test timeout in milliseconds (default: 60000)',
             '  --no-run             Generate tests without executing them',
+            '  --max-depth <n>      Max navigation depth for flow discovery (default: 3)',
+            '  --max-states <n>     Max states to discover (default: 20)',
+            '  --max-radio-depth <n> How deep to chain cascading radio selections (default: 3)',
+            '  --ai-timeout <ms>    Timeout for individual AI calls (default: 15000)',
             '  --validate           Dry-run: Check if all selectors exist in DOM',
             '  --rerun              Re-run failed tests from last execution',
             '  --rerun-steps        Rerun failed steps with artifact regeneration',
@@ -320,46 +319,102 @@ async function main() {
             '  --healing            Execute comprehensive healing workflow',
             '',
             'Examples:',
-            '  ts-node src/cli.ts https://example.com "Test login" --model llama3',
-            '  ts-node src/cli.ts --instructions instructions.json --no-run',
-            '  ts-node src/cli.ts --instructions ./custom-instructions.json',
+            '  ts-node src/cli.ts https://example.com',
+            '  ts-node src/cli.ts https://example.com --max-depth 5',
+            '  ts-node src/cli.ts https://www.saucedemo.com --no-run',
             '  ts-node src/cli.ts --validate',
             '  ts-node src/cli.ts --rerun',
-            '  ts-node src/cli.ts --rerun-steps',
-            '  ts-node src/cli.ts --check-duplicates',
-            '  ts-node src/cli.ts --check-duplicates --fix',
-            '  ts-node src/cli.ts --healing',
           ].join('\n')
         );
         process.exit(1);
       }
+      parsedArgs['url'] = firstArg;
+    }
 
-      const validatedUrl = InputValidator.validateURL(url);
-      const instruction = InputValidator.sanitizePrompt(instructionParts.join(' '));
+    const validatedUrl = url
+      ? InputValidator.validateURL(url)
+      : InputValidator.validateURL(parsedArgs['url'] as string);
 
-      console.log(
-        [
-          `🚀 Starting AI-powered test generation`,
-          `📌 URL: ${validatedUrl}`,
-          `📝 Instruction: ${instruction}`,
-          `🤖 Model: ${config.ollamaModel || 'llama3'}`,
-          `⏱️ Timeout: ${config.testTimeout}ms`,
-          `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
-          `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,
-        ].join('\n')
-      );
+    const aiTimeout =
+      typeof parsedArgs['ai-timeout'] === 'string'
+        ? parseInt(parsedArgs['ai-timeout'], 10)
+        : 15000
 
-      const { featureFilePath } = await testGenerationService.generateTestArtifacts(
-        validatedUrl,
-        instruction,
-        config
-      );
+    const maxRadioDepth =
+      typeof parsedArgs['max-radio-depth'] === 'string'
+        ? parseInt(parsedArgs['max-radio-depth'], 10)
+        : 3;
 
-      if (shouldRunTests) {
-        testRunnerService.runTests(featureFilePath, config.testTimeout);
-      } else {
-        console.log('\n⏭️ Skipping test execution (--no-run flag set)');
-      }
+    console.log(
+      [
+        `🚀 Starting flow-matrix-based test generation`,
+        `📌 URL: ${validatedUrl}`,
+        `🤖 Model: ${config.ollamaModel || 'llama3'}`,
+        `⏱️  AI timeout: ${aiTimeout}ms`,
+        `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
+        `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,
+        `🔘 Radio cascade depth: ${maxRadioDepth}`,
+      ].join('\n')
+    );
+
+    const ollamaClient = new OllamaClient({
+      model: config.ollamaModel,
+      maxRetries: 0,
+      timeout: aiTimeout,
+    });
+
+    console.log('\n🔍 Discovering flow matrix...');
+    const maxDepth = typeof parsedArgs['max-depth'] === 'string' ? parseInt(parsedArgs['max-depth'], 10) : 3;
+    const maxStates = typeof parsedArgs['max-states'] === 'string' ? parseInt(parsedArgs['max-states'], 10) : 20;
+
+    const { matrix, scenarios, log } = await discoverAndGenerate(validatedUrl, ollamaClient, {
+      maxDepth,
+      maxStates,
+      maxInteractionsPerState: 5,
+      timeoutPerState: 15000,
+      totalTimeoutMs: 120000,
+      maxRadioDepth,
+    });
+
+    console.log(`\n📊 Discovery complete: ${matrix.states.size} states, ${matrix.transitions.length} transitions`);
+    for (const entry of log) {
+      console.log(`  ${entry}`);
+    }
+
+    // Generate feature file
+    const featuresDir = path.resolve('src/features');
+    mkdirSync(featuresDir, { recursive: true });
+
+    const featureContent = buildFeatureFile(scenarios, validatedUrl);
+    const featureFileName = `generated_${new URL(validatedUrl).hostname.replace(/\./g, '_')}.feature`;
+    const featureFilePath = path.join(featuresDir, featureFileName);
+    writeFileSync(featureFilePath, featureContent, 'utf-8');
+    console.log(`\n📝 Feature file: ${featureFilePath} (${scenarios.length} scenarios)`);
+
+    // Generate page objects from discovered states
+    console.log('\n🏗️ Generating page objects...');
+    const statesArray = Array.from(matrix.states.values());
+    await buildPageObjectsFromStates(
+      statesArray.map((s) => ({
+        id: s.id,
+        url: s.url,
+        elements: s.elements.map((el) => ({
+          selector: el.selector,
+          text: el.text,
+          name: el.name,
+        })),
+      }))
+    );
+
+    // Generate step definitions
+    console.log('\n⚙️ Generating step definitions...');
+    await generateStepDefsFromMatrixScenarios(scenarios, ollamaClient, { url: validatedUrl });
+
+    // Run tests if requested
+    if (shouldRunTests) {
+      await testRunnerService.runTests(featureFilePath, config.testTimeout);
+    } else {
+      console.log('\n⏭️ Skipping test execution (--no-run flag set)');
     }
 
     console.log('\n🎉 Test generation completed successfully!');

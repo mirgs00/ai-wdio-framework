@@ -25,11 +25,11 @@ export interface PageSelectorValidationResult {
  */
 export async function validateSelector(
   selector: string,
-  timeout: number = 2000
+  _timeout: number = 2000
 ): Promise<SelectorValidationResult> {
   try {
     const element = $(selector);
-    const exists = await element.isExisting({ timeout });
+    const exists = await element.isExisting();
     return {
       selector,
       exists,

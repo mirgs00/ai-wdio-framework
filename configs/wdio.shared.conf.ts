@@ -7,7 +7,7 @@ export const config: WebdriverIO.Config = {
     cucumberOpts: {
         require: ['./src/step-definitions/**/*.ts'],
         timeout: 60000,
-        format: ['pretty']
+        format: ['summary']
     },
     reporters: ['spec'],
     before: function () {

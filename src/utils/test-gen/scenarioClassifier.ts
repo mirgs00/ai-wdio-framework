@@ -1,4 +1,4 @@
-import { ScenarioType } from '../ai/promptTemplates';
+export type ScenarioType = 'happy-path' | 'negative' | 'edge-case' | 'validation' | 'workflow'
 
 export interface ClassifiedScenario {
   title: string;
@@ -146,7 +146,7 @@ export class ScenarioClassifier {
     return Math.min(priority, 20);
   }
 
-  private generateDescription(type: ScenarioType, title: string): string {
+  private generateDescription(type: ScenarioType, _title: string): string {
     const descriptions: Record<ScenarioType, string> = {
       'happy-path': 'Tests successful user interaction with valid data and expected outcomes',
       negative: 'Tests error handling and validation with invalid or malformed data',

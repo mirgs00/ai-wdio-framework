@@ -302,7 +302,7 @@ export class StepPatternGenerator {
 
   private generateGenericPattern(stepText: string): string {
     const parts: string[] = [];
-    let remaining = stepText;
+    const _remaining = stepText;
 
     const quotedRegex = /"[^"]*"/g;
     const numberRegex = /\b\d+\b/g;
@@ -327,18 +327,25 @@ export class StepPatternGenerator {
     }
 
     while ((match = numberRegex.exec(stepText)) !== null) {
-      allMatches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        type: 'number',
-        original: match[0],
-      });
+      // Skip numbers inside quoted strings to avoid overlapping matches
+      const insideQuote = allMatches.some(
+        (m) => m.type === 'quote' && match!.index >= m.start && match!.index < m.end
+      )
+      if (!insideQuote) {
+        allMatches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          type: 'number',
+          original: match[0],
+        })
+      }
     }
 
     allMatches.sort((a, b) => a.start - b.start);
 
     lastIndex = 0;
     for (const m of allMatches) {
+      if (m.start < lastIndex) continue // skip overlapping matches
       const textBefore = stepText.substring(lastIndex, m.start);
       parts.push(this.escapeRegexChars(textBefore));
 
@@ -365,10 +372,10 @@ export class StepPatternGenerator {
     const pattern = this.commonPatterns.get(patternKey);
     if (!pattern) return [];
 
-    const examples = pattern.examples;
-    const matches = stepText.match(/["\']([^"\']*)["\']|(\d+)/g) || [];
+    const _examples = pattern.examples;
+    const matches = stepText.match(/["']([^"']*)["']|(\d+)/g) || [];
 
-    return matches.map((m) => m.replace(/["\'\s]/g, ''));
+    return matches.map((m) => m.replace(/["'\s]/g, ''));
   }
 
   findBestMatchingPattern(stepText: string): StepPattern | null {

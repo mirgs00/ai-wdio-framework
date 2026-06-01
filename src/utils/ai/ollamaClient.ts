@@ -3,6 +3,8 @@ import fetch, { RequestInit } from 'node-fetch';
 import { AbortError } from 'node-fetch';
 import { getConfig } from '../../config';
 import { logger } from '../logger';
+import { OLLAMA_CONFIG, TIMEOUTS, RETRY_CONFIG } from '../constants';
+import type { LLMProvider } from './types';
 
 export interface OllamaResponse {
   model: string;
@@ -29,7 +31,7 @@ export interface OllamaClientConfig {
   retryDelayMs?: number;
 }
 
-export class OllamaClient {
+export class OllamaClient implements LLMProvider {
   private ollamaClientBaseUrl: string;
   private model: string;
   private defaultOptions: OllamaOptions;
@@ -38,17 +40,17 @@ export class OllamaClient {
   private retryDelayMs: number;
 
   constructor(config: OllamaClientConfig = {}) {
-    this.ollamaClientBaseUrl = config.baseUrl || 'http://localhost:11434';
-    this.model = config.model || 'llama3';
+    this.ollamaClientBaseUrl = config.baseUrl || OLLAMA_CONFIG.DEFAULT_BASE_URL;
+    this.model = config.model || OLLAMA_CONFIG.DEFAULT_MODEL;
     this.defaultOptions = config.defaultOptions || {
-      temperature: 0.3,
-      max_tokens: 500,
-      top_p: 0.9,
-      repeat_penalty: 1.1,
+      temperature: OLLAMA_CONFIG.DEFAULT_TEMPERATURE,
+      max_tokens: OLLAMA_CONFIG.DEFAULT_MAX_TOKENS,
+      top_p: OLLAMA_CONFIG.DEFAULT_TOP_P,
+      repeat_penalty: OLLAMA_CONFIG.DEFAULT_REPEAT_PENALTY,
     };
-    this.timeout = config.timeout || 120000;
-    this.maxRetries = config.maxRetries ?? 3;
-    this.retryDelayMs = config.retryDelayMs ?? 1000;
+    this.timeout = config.timeout || TIMEOUTS.API_TIMEOUT;
+    this.maxRetries = config.maxRetries ?? RETRY_CONFIG.MAX_RETRIES;
+    this.retryDelayMs = config.retryDelayMs ?? RETRY_CONFIG.INITIAL_DELAY_MS;
   }
 
   private sanitizeDOM(dom: string, maxLength: number = 5000): string {
@@ -200,7 +202,7 @@ export class OllamaClient {
 
   async generateStepImplementation(
     step: string,
-    context: {
+    _context: {
       stepType: 'Given' | 'When' | 'Then';
       pageElements?: string[];
     }
@@ -233,7 +235,7 @@ Now implement: "${step}"`;
     return this.generateText(prompt, { temperature: 0.2 });
   }
 
-  private generateFallbackStep(step: string, stepType: string): string {
+  private generateFallbackStep(step: string, _stepType: string): string {
     const lowerStep = step.toLowerCase();
 
     if (lowerStep.includes('submit') && lowerStep.includes('invalid')) {
@@ -271,9 +273,13 @@ try {
     });
   }
 
+  getModel(): string {
+    return this.model;
+  }
+
   async checkHealth(): Promise<boolean> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.HEALTH_CHECK_TIMEOUT);
 
     try {
       const response = await fetch(`${this.ollamaClientBaseUrl}/api/tags`, {
@@ -283,7 +289,7 @@ try {
       return response.ok;
     } catch (error: unknown) {
       clearTimeout(timeoutId);
-      console.error('Health check failed:', error instanceof Error ? error.message : error);
+      logger.warn('Health check failed', { section: 'OLLAMA', details: { error: error instanceof Error ? error.message : String(error) } });
       return false;
     }
   }
@@ -312,13 +318,13 @@ export async function generateSteps(prompt: string, dom?: string): Promise<strin
  */
 export function createOllamaClient(config?: OllamaClientConfig): OllamaClient {
   return new OllamaClient({
-    baseUrl: process.env.OLLAMA_BASE_URL,
-    model: process.env.OLLAMA_MODEL,
-    timeout: process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT) : 120000,
-    maxRetries: process.env.OLLAMA_MAX_RETRIES ? parseInt(process.env.OLLAMA_MAX_RETRIES) : 3,
+    baseUrl: process.env.OLLAMA_BASE_URL || OLLAMA_CONFIG.DEFAULT_BASE_URL,
+    model: process.env.OLLAMA_MODEL || OLLAMA_CONFIG.DEFAULT_MODEL,
+    timeout: process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT) : TIMEOUTS.API_TIMEOUT,
+    maxRetries: process.env.OLLAMA_MAX_RETRIES ? parseInt(process.env.OLLAMA_MAX_RETRIES) : RETRY_CONFIG.MAX_RETRIES,
     retryDelayMs: process.env.OLLAMA_RETRY_DELAY_MS
       ? parseInt(process.env.OLLAMA_RETRY_DELAY_MS)
-      : 1000,
+      : RETRY_CONFIG.INITIAL_DELAY_MS,
     ...config,
   });
 }

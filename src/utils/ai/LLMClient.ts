@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import * as crypto from 'crypto';
-import { OllamaClient } from './ollamaClient';
+import type { LLMProvider } from './types';
+import { logger } from '../logger';
 
 // --- 1. Custom Error and Schema ---
 
@@ -23,21 +24,18 @@ export type LLMSuggestion = z.infer<typeof LLMSuggestionSchema>;
 // --- 2. LLM Client Implementation ---
 
 export class LLMClient {
-    private client: OllamaClient;
+    private provider: LLMProvider;
     private modelName: string;
     private maxRetries: number;
     private timeout: number;
 
     constructor(
-        modelName: string = 'ollama/llama3',
+        provider: LLMProvider,
         maxRetries: number = 3,
         timeout: number = 60
     ) {
-        this.client = new OllamaClient({
-            model: modelName.replace('ollama/', ''),
-            timeout: timeout * 1000,
-        });
-        this.modelName = modelName;
+        this.provider = provider;
+        this.modelName = provider.getModel();
         this.maxRetries = maxRetries;
         this.timeout = timeout;
     }
@@ -61,15 +59,14 @@ locator that uniquely identifies the element. The locator must be a valid WebDri
 Do not include any text or explanation outside of the JSON object.
 
 **RESPONSE FORMAT (JSON ONLY):**
-${JSON.stringify(LLMSuggestionSchema.shape, null, 2)}
+${JSON.stringify({ newLocator: "#login-btn", locatorType: "css", reasoning: "Most stable unique selector" }, null, 2)}
 `;
     }
 
     private async _callLLM(prompt: string): Promise<string> {
-        return this.client.generateText(prompt, {
+        return this.provider.generateText(prompt, {
             temperature: 0.1,
             max_tokens: 300,
-            retries: 1,
         });
     }
 
@@ -81,7 +78,7 @@ ${JSON.stringify(LLMSuggestionSchema.shape, null, 2)}
         const prompt = this._buildHealingPrompt(failedLocator, domSnippet, semanticPurpose);
 
         for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-            console.log(`[LLMClient] Attempting to get new locator (Attempt ${attempt}/${this.maxRetries})...`);
+            logger.info(`[LLMClient] Attempting to get new locator (Attempt ${attempt}/${this.maxRetries})...`);
             try {
                 const rawJson = await this._callLLM(prompt);
 
@@ -93,21 +90,21 @@ ${JSON.stringify(LLMSuggestionSchema.shape, null, 2)}
                 const parsedJson = JSON.parse(rawJson);
                 const validatedSuggestion = LLMSuggestionSchema.parse(parsedJson);
 
-                console.log(`[LLMClient] Success on attempt ${attempt}.`);
+                logger.info(`[LLMClient] Success on attempt ${attempt}.`);
                 return validatedSuggestion;
 
             } catch (error) {
-                console.error(`[LLMClient] Error on attempt ${attempt}:`, error instanceof Error ? error.message : String(error));
+                logger.error(`[LLMClient] Error on attempt ${attempt}: ${error instanceof Error ? error.message : String(error)}`);
 
                 if (attempt < this.maxRetries) {
                     // Exponential Backoff with Jitter (Mitigation for API Failure/Timeout)
                     const baseDelay = 2 ** attempt;
                     const jitter = crypto.randomInt(0, 1000) / 1000; // 0 to 1 second jitter
                     const waitTime = baseDelay + jitter;
-                    console.log(`[LLMClient] Retrying in ${waitTime.toFixed(2)} seconds...`);
+                    logger.info(`[LLMClient] Retrying in ${waitTime.toFixed(2)} seconds...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
                 } else {
-                    console.error('[LLMClient] All retry attempts exhausted. Healing failed at LLM stage.');
+                    logger.error('[LLMClient] All retry attempts exhausted. Healing failed at LLM stage.');
                     return null;
                 }
             }

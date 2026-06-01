@@ -24,6 +24,10 @@ function toCamelCase(str: string): string {
     .replace(/[^\w]/gi, '');
 }
 
+function validIdentifier(name: string): string {
+  return /^\d/.test(name) ? '_' + name : name;
+}
+
 /**
  * Generates a page object file by analyzing the DOM of a given URL.
  * Identifies interactive elements (inputs, buttons, links) and creates getters for them.
@@ -82,7 +86,7 @@ function capitalize(str: string): string {
 function detectPageType(htmlContent: string, url: string): string {
   const $ = load(htmlContent);
   const content = htmlContent.toLowerCase();
-  const title = $('title').text().toLowerCase();
+  const _title = $('title').text().toLowerCase();
 
   // Detect page types from content and URL
   if (
@@ -162,7 +166,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
         analysis.inputFields.forEach((field, idx) => {
           const name = field.name || `field${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_input`),
+            name: validIdentifier(toCamelCase(`${name}_input`)),
             selector: field.selector,
             description: field.label || field.placeholder || `Input field: ${name}`,
           });
@@ -173,7 +177,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
         analysis.buttons.forEach((btn, idx) => {
           const name = btn.text || `button${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_button`),
+            name: validIdentifier(toCamelCase(`${name}_button`)),
             selector: btn.selector,
             description: btn.text || `Button element`,
           });
@@ -184,7 +188,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
         analysis.links.forEach((link, idx) => {
           const name = link.text || `link${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_link`),
+            name: validIdentifier(toCamelCase(`${name}_link`)),
             selector: link.selector,
             description: `Link: ${link.text}`,
           });
@@ -195,7 +199,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
         analysis.headings.forEach((heading, idx) => {
           const name = heading.text || `heading${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_heading`),
+            name: validIdentifier(toCamelCase(`${name}_heading`)),
             selector: heading.selector,
             description: `Heading (H${heading.level}): ${heading.text}`,
           });
@@ -204,9 +208,9 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
 
       if (analysis.errorElements.length > 0) {
         analysis.errorElements.forEach((error, idx) => {
-          const name = error.selector.replace(/[#.\[\]"=]/g, '') || `error${idx}`;
+          const name = error.selector.replace(/[#.[\]"=]/g, '') || `error${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_error`),
+            name: validIdentifier(toCamelCase(`${name}_error`)),
             selector: error.selector,
             description: error.description,
           });
@@ -215,9 +219,9 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
 
       if (analysis.successElements.length > 0) {
         analysis.successElements.forEach((success, idx) => {
-          const name = success.selector.replace(/[#.\[\]"=]/g, '') || `success${idx}`;
+          const name = success.selector.replace(/[#.[\]"=]/g, '') || `success${idx}`;
           elements.push({
-            name: toCamelCase(`${name}_success`),
+            name: validIdentifier(toCamelCase(`${name}_success`)),
             selector: success.selector,
             description: success.description,
           });
@@ -225,7 +229,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
       }
 
       if (analysis.textElements && analysis.textElements.length > 0) {
-        analysis.textElements.forEach((textEl, idx) => {
+        analysis.textElements.forEach((textEl, _idx) => {
           const name = textEl.text
             .substring(0, 30)
             .replace(/[^a-zA-Z0-9\s]/g, ' ')
@@ -233,7 +237,7 @@ async function identifyPageElements(url: string, htmlContent?: string): Promise<
             .replace(/\s+/g, '_');
           if (name.length > 0) {
             elements.push({
-              name: toCamelCase(`${name}_text`),
+              name: validIdentifier(toCamelCase(`${name}_text`)),
               selector: textEl.selector,
               description: `Text element: ${textEl.text.substring(0, 50)}`,
             });
@@ -381,7 +385,7 @@ function generatePageObjectFile(elements: PageElement[], url: string): string {
       return `  /**
    * ${el.description}
    */
-  public get ${el.name}(): ChainablePromiseElement<WebdriverIO.Element> {
+  public get ${el.name}(): ChainablePromiseElement {
     return $('${el.selector.replace(/'/g, "\\'")}');
   }`;
     })
@@ -393,6 +397,57 @@ import { ChainablePromiseElement } from 'webdriverio';
 
 class GeneratedPage {
 ${elementsCode}
+
+  /**
+   * Hides all ad iframes that may overlay interactive elements.
+   * Call before any click or setValue to avoid "element click intercepted" errors.
+   */
+  async hideIframes(): Promise<void> {
+    await browser.execute(() => {
+      document.querySelectorAll('iframe').forEach((ifr) => {
+        (ifr as HTMLElement).style.display = 'none';
+      });
+    });
+  }
+
+  /**
+   * Sets a value on an input using browser.execute to bypass ad overlays.
+   * Falls back to WebDriverIO setValue if the element is not found via JS.
+   */
+  async safeSetValue(selector: string, value: string): Promise<void> {
+    await this.hideIframes();
+    const set = await browser.execute(
+      (sel: string, val: string) => {
+        const el = document.querySelector(sel) as HTMLInputElement;
+        if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); return true; }
+        return false;
+      },
+      selector,
+      value
+    );
+    if (!set) {
+      await $(selector).setValue(value);
+    }
+  }
+
+  /**
+   * Clicks an element via JS to avoid ad overlay interception.
+   * Falls back to WebDriverIO click if JS click fails.
+   */
+  async safeClick(selector: string): Promise<void> {
+    await this.hideIframes();
+    const clicked = await browser.execute(
+      (sel: string) => {
+        const el = document.querySelector(sel) as HTMLElement;
+        if (el) { el.click(); return true; }
+        return false;
+      },
+      selector
+    );
+    if (!clicked) {
+      await $(selector).click();
+    }
+  }
 
   // Common actions
   async open(): Promise<void> {
@@ -410,5 +465,45 @@ ${elementsCode}
 
 export const generatedPage = new GeneratedPage();
 export default GeneratedPage;`;
+}
+
+export async function buildPageObjectsFromStates(
+  states: { id: string; url: string; elements: { selector: string; text?: string; name?: string }[] }[]
+): Promise<void> {
+  if (!existsSync(PAGE_OBJECTS_PATH)) {
+    mkdirSync(PAGE_OBJECTS_PATH, { recursive: true });
+  }
+
+  const allElements: PageElement[] = []
+  const seenNames = new Set<string>()
+
+  for (const state of states) {
+    for (const el of state.elements) {
+      const rawName = el.name || el.text || el.selector.replace(/[#.\]]/g, ' ').replace(/\s+/g, ' ').trim()
+      let name = validIdentifier(
+        toCamelCase(
+          rawName.replace(/[^a-zA-Z0-9\s]/g, ' ').substring(0, 40)
+        )
+      )
+      if (seenNames.has(name)) {
+        // Deduplicate by appending a suffix
+        let i = 2
+        while (seenNames.has(`${name}${i}`)) { i++ }
+        name = `${name}${i}`
+      }
+      seenNames.add(name)
+      allElements.push({
+        name,
+        selector: el.selector,
+        description: el.text ? `Element: ${el.text.slice(0, 50)}` : `Element: ${el.selector}`,
+      })
+    }
+  }
+
+  const pageObjectCode = generatePageObjectFile(allElements, states[0]?.url || '')
+  writeFileSync(GENERATED_PAGE_FILE, pageObjectCode, 'utf-8')
+  logger.info(`✅ Generated page object from ${states.length} states (${allElements.length} elements)`, {
+    section: 'PAGE_OBJECT_BUILD',
+  })
 }
 

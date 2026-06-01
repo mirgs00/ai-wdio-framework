@@ -20,6 +20,8 @@ class Logger {
   private logFilePath: string;
   private fileEnabled: boolean = false;
   private performanceMetrics: Map<string, number[]> = new Map();
+  private writeQueue: string[] = [];
+  private isWriting = false;
 
   constructor(logFile?: string) {
     this.logFilePath = logFile || path.join(process.cwd(), 'generate_output.log');
@@ -45,10 +47,23 @@ class Logger {
 
   private writeToFile(message: string): void {
     if (!this.fileEnabled) return;
+    this.writeQueue.push(message);
+    this.flushQueue();
+  }
+
+  private flushQueue(): void {
+    if (this.isWriting || this.writeQueue.length === 0) return;
+    this.isWriting = true;
+    const messages = this.writeQueue.splice(0);
     try {
-      fs.appendFileSync(this.logFilePath, message + '\n');
+      fs.appendFileSync(this.logFilePath, messages.join('\n') + '\n');
     } catch (error) {
       console.error('Failed to write to log file:', error);
+    } finally {
+      this.isWriting = false;
+      if (this.writeQueue.length > 0) {
+        setImmediate(() => this.flushQueue());
+      }
     }
   }
 

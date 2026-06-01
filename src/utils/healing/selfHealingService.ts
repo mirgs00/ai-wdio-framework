@@ -1,9 +1,11 @@
-import { browser, $ } from '@wdio/globals';
+import { browser } from '@wdio/globals';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createOllamaClient } from '../ai/ollamaClient';
-import { analyzeDOM } from '../dom/domAnalyzer';
-import { discoverElementsFromDOM, DiscoveredElement } from '../dom/discoverElementsFromDOM';
+import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wdio/mcp/snapshot';
+import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
+import { HEALING_CONFIG } from '../constants';
+import { logger } from '../logger';
 
 export interface HealingContext {
   stepText: string;
@@ -23,15 +25,13 @@ export interface HealingResult {
 }
 
 class SelfHealingService {
-  private maxHealingAttempts = 2;
+  private maxHealingAttempts = HEALING_CONFIG.MAX_ATTEMPTS;
   private healingCache = new Map<string, HealingResult>();
 
   /**
    * Analyze failure and attempt to heal the step
    */
   async healStep(context: HealingContext): Promise<HealingResult> {
-    const cacheKey = `${context.pageName}:${context.stepText}`;
-
     if (context.attemptCount > this.maxHealingAttempts) {
       return {
         healed: false,
@@ -40,20 +40,23 @@ class SelfHealingService {
       };
     }
 
-    console.log(
-      `🔧 Attempting to heal step: "${context.stepText}" (attempt ${context.attemptCount})`
-    );
+    logger.info(`Attempting to heal step: "${context.stepText}" (attempt ${context.attemptCount})`, {
+      section: 'SELF_HEALING',
+      details: { stepText: context.stepText, attempt: context.attemptCount, pageName: context.pageName },
+    });
 
     try {
-      // Step 1: Get current DOM
-      const domHtml = await this.getCurrentDOM();
-      const pageAnalysis = analyzeDOM(domHtml);
-      const discoveredElements = discoverElementsFromDOM(domHtml);
+      // Step 1: Get current page elements via MCP snapshot (in-browser detection)
+      const elements = await getInteractableBrowserElements(browser);
+      const accessibilityTree = await getBrowserAccessibilityTree(browser);
 
-      console.log(`📊 Found ${discoveredElements.length} elements on current page`);
+      logger.info(`Found ${elements.length} interactable elements on current page`, {
+        section: 'SELF_HEALING',
+        details: { elementCount: elements.length, treeSize: accessibilityTree.length },
+      });
 
       // Step 2: Use Ollama to determine the fix needed
-      const fix = await this.generateFix(context, pageAnalysis, discoveredElements);
+      const fix = await this.generateFix(context, elements, accessibilityTree);
 
       if (!fix.healed) {
         return fix;
@@ -73,7 +76,7 @@ class SelfHealingService {
         retryable: true,
       };
     } catch (error) {
-      console.error(`❌ Healing failed: ${error instanceof Error ? error.message : error}`);
+      logger.error(`Healing failed`, error as Error);
       return {
         healed: false,
         reason: `Healing service error: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -83,33 +86,38 @@ class SelfHealingService {
   }
 
   /**
-   * Get current page DOM (truncated to prevent token overflow)
+   * Get page context summary from MCP snapshot for logging
    */
-  private async getCurrentDOM(maxLength: number = 10000): Promise<string> {
-    const dom = await browser.execute(() => {
-      return document.documentElement.outerHTML;
-    });
-    if (dom.length <= maxLength) return dom;
-    return dom.slice(0, maxLength) + '\n<!-- ... truncated ... -->';
+  private summarizePageContext(elements: BrowserElementInfo[], tree: AccessibilityNode[]): string {
+    const buttons = elements.filter((e) => e.tagName === 'button' || e.type === 'submit');
+    const inputs = elements.filter((e) => e.tagName === 'input' || e.tagName === 'select' || e.tagName === 'textarea');
+    const links = elements.filter((e) => e.tagName === 'a');
+    const headings = tree.filter((n) => ['heading', 'banner'].includes(n.role));
+    return `Buttons: ${buttons.length}, Inputs: ${inputs.length}, Links: ${links.length}, Headings: ${headings.length}`;
   }
 
   /**
-   * Use Ollama to generate a fix
+   * Use Ollama to generate a fix with MCP-powered element context
    */
   private async generateFix(
     context: HealingContext,
-    pageAnalysis: any,
-    discoveredElements: DiscoveredElement[]
+    elements: BrowserElementInfo[],
+    accessibilityTree: AccessibilityNode[]
   ): Promise<HealingResult> {
     try {
       const ollamaClient = createOllamaClient();
 
-      const elementsSummary = discoveredElements
-        .slice(0, 20) // Limit to prevent token overflow
+      const elementsSummary = elements
+        .slice(0, 25) // Limit to prevent token overflow
         .map(
           (el) =>
-            `- ${el.tag}${el.id ? '#' + el.id : ''}${el.name ? '[name=' + el.name + ']' : ''}: "${el.text || el.placeholder || ''}" (selector: ${el.selector})`
+            `- <${el.tagName}>${el.name ? ` name="${el.name}"` : ''}${el.type ? ` type="${el.type}"` : ''}${el.tagName === 'a' && el.href ? ` href="${el.href}"` : ''}: "${el.value || el.name || ''}" (selector: ${el.selector})${el.isInViewport ? '' : ' [outside viewport]'}`
         )
+        .join('\n');
+
+      const treeSummary = accessibilityTree
+        .slice(0, 15)
+        .map((n) => `- [${n.role}] "${n.name}" (selector: ${n.selector})`)
         .join('\n');
 
       const prompt = `You are a test automation expert. A Selenium/WebdriverIO step failed.
@@ -121,24 +129,20 @@ class SelfHealingService {
 **Error Message:** ${context.errorMessage}
 ${context.failedElement ? `**Failed Element:** ${context.failedElement}` : ''}
 
-**Current Page Analysis:**
-- Title: ${pageAnalysis.title}
-- Buttons: ${pageAnalysis.buttons.length}
-- Links: ${pageAnalysis.links.length}
-- Input Fields: ${pageAnalysis.inputFields.length}
-- Headings: ${pageAnalysis.headings.length}
-
-**Available Elements on Current Page:**
+**Current Page — Interactable Elements (via MCP snapshot):**
 ${elementsSummary}
+
+**Accessibility Tree (top-level):**
+${treeSummary}
 
 **Task:**
 1. Identify which element on the current page matches the step intent
-2. Provide a CSS selector that will find it
+2. Provide a CSS or aria selector that will find it uniquely
 3. If the element doesn't exist, suggest the closest alternative
-4. Return ONLY valid CSS selectors, no explanations
+4. Return ONLY the selector, no explanations
 
 **Response format (ONLY CSS selector, no markdown, no code blocks):**
-SELECTOR: your-css-selector-here
+SELECTOR: your-selector-here
 REASON: one line explanation
 ELEMENT_TYPE: input|button|text|heading|link|other`;
 
@@ -150,16 +154,16 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
 
       return this.parseHealingResponse(response, context);
     } catch (error) {
-      console.warn(`⚠️ Ollama healing failed: ${error instanceof Error ? error.message : error}`);
+      logger.warn('Ollama healing failed, trying fallback', { section: 'SELF_HEALING', details: { error: error instanceof Error ? error.message : String(error) } });
       // If Ollama fails, try fallback healing
-      return this.tryFallbackHealing(context, discoveredElements, pageAnalysis);
+      return this.tryFallbackHealing(context, elements, accessibilityTree);
     }
   }
 
   /**
    * Parse Ollama response
    */
-  private parseHealingResponse(response: string, context: HealingContext): HealingResult {
+  private parseHealingResponse(response: string, _context: HealingContext): HealingResult {
     const selectorMatch = response.match(/SELECTOR:\s*(.+?)(?:\n|$)/i);
     const reasonMatch = response.match(/REASON:\s*(.+?)(?:\n|$)/i);
 
@@ -183,103 +187,64 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
   }
 
   /**
-   * Fallback healing when Ollama is unavailable
+   * Fallback healing when Ollama is unavailable (MCP-powered)
    */
   private tryFallbackHealing(
     context: HealingContext,
-    discoveredElements: DiscoveredElement[],
-    pageAnalysis: any
+    elements: BrowserElementInfo[],
+    accessibilityTree: AccessibilityNode[]
   ): HealingResult {
     const stepLower = context.stepText.toLowerCase();
 
-    // Try to match step intent with discovered elements
     if (stepLower.includes('username') || stepLower.includes('email')) {
-      const inputEl = discoveredElements.find(
+      const inputEl = elements.find(
         (el) =>
-          el.tag === 'input' && el.type === 'text' && el.placeholder?.toLowerCase().includes('user')
+          el.tagName === 'input' &&
+          (el.type === 'text' || el.type === 'email') &&
+          (el.name?.toLowerCase().includes('user') || el.name?.toLowerCase().includes('email'))
       );
       if (inputEl) {
-        return {
-          healed: true,
-          newSelector: inputEl.selector,
-          reason: 'Matched username input field',
-          retryable: true,
-        };
+        return { healed: true, newSelector: inputEl.selector, reason: 'Matched username/email input via MCP', retryable: true };
       }
     }
 
     if (stepLower.includes('password')) {
-      const inputEl = discoveredElements.find((el) => el.tag === 'input' && el.type === 'password');
+      const inputEl = elements.find((el) => el.tagName === 'input' && el.type === 'password');
       if (inputEl) {
-        return {
-          healed: true,
-          newSelector: inputEl.selector,
-          reason: 'Matched password input field',
-          retryable: true,
-        };
+        return { healed: true, newSelector: inputEl.selector, reason: 'Matched password input via MCP', retryable: true };
       }
     }
 
-    if (stepLower.includes('button') || stepLower.includes('click')) {
-      const buttonEl = discoveredElements.find(
-        (el) => el.tag === 'button' || (el.tag === 'input' && el.type === 'submit')
+    if (stepLower.includes('button') || stepLower.includes('click') || stepLower.includes('submit')) {
+      const buttonEl = elements.find(
+        (el) => el.tagName === 'button' || (el.tagName === 'input' && el.type === 'submit') || el.tagName === 'a'
       );
       if (buttonEl) {
-        return {
-          healed: true,
-          newSelector: buttonEl.selector,
-          reason: 'Matched button element',
-          retryable: true,
-        };
+        return { healed: true, newSelector: buttonEl.selector, reason: 'Matched button/link via MCP', retryable: true };
       }
     }
 
-    if (
-      stepLower.includes('heading') ||
-      stepLower.includes('title') ||
-      stepLower.includes('header')
-    ) {
-      const headingEl = pageAnalysis.headings[0];
+    if (stepLower.includes('heading') || stepLower.includes('title') || stepLower.includes('header')) {
+      const headingEl = accessibilityTree.find((n) => n.role === 'heading');
       if (headingEl) {
-        return {
-          healed: true,
-          newSelector: headingEl.selector,
-          reason: 'Matched page heading',
-          retryable: true,
-        };
+        return { healed: true, newSelector: headingEl.selector, reason: 'Matched heading via MCP accessibility tree', retryable: true };
       }
     }
 
-    if (
-      stepLower.includes('message') ||
-      stepLower.includes('text') ||
-      stepLower.includes('error')
-    ) {
-      // Try success message elements
-      const successEl = pageAnalysis.successElements[0];
-      if (successEl) {
-        return {
-          healed: true,
-          newSelector: successEl.selector,
-          reason: 'Matched success message element',
-          retryable: true,
-        };
+    if (stepLower.includes('message') || stepLower.includes('text') || stepLower.includes('error')) {
+      const alertEl = accessibilityTree.find((n) => n.role === 'alert');
+      if (alertEl) {
+        return { healed: true, newSelector: alertEl.selector, reason: 'Matched alert element via MCP accessibility tree', retryable: true };
       }
-      // Try error elements
-      const errorEl = pageAnalysis.errorElements[0];
-      if (errorEl) {
-        return {
-          healed: true,
-          newSelector: errorEl.selector,
-          reason: 'Matched error message element',
-          retryable: true,
-        };
+      const firstEl = elements.find((e) => e.name?.toLowerCase().includes('error') || e.name?.toLowerCase().includes('success'));
+      if (firstEl) {
+        return { healed: true, newSelector: firstEl.selector, reason: `Matched element via accessible name: "${firstEl.name}"`, retryable: true };
       }
     }
 
     return {
       healed: false,
-      reason: 'No matching element found in fallback healing',
+      reason: 'No matching element found in MCP-based fallback healing',
       retryable: false,
     };
   }
@@ -299,24 +264,22 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
     try {
       let content = fs.readFileSync(pageObjectPath, 'utf-8');
 
-      // Find the getter and update its selector
+      // Find the getter and update its selector (handle public prefix and type annotations)
       const getterPattern = new RegExp(
-        `get ${elementName}[\\s\\S]*?return \\$\\('([^']+)'\\);`,
+        `((?:public\\s+)?)get\\s+${elementName}\\s*\\(\\s*\\)\\s*[^{]*\\{\\s*return\\s+\\$\\('([^']+)'\\);`,
         'i'
       );
 
       if (getterPattern.test(content)) {
         content = content.replace(
           getterPattern,
-          `get ${elementName}() {\n    return $('${newSelector}');\n  }`
+          `$1get ${elementName}() {\n    return $('${newSelector}');\n  }`
         );
-        writeFileSync(pageObjectPath, content);
-        console.log(`✅ Updated selector in ${pageName} page object for ${elementName}`);
+        fs.writeFileSync(pageObjectPath, content);
+        logger.info(`Updated selector in ${pageName} page object for ${elementName}`, { section: 'SELF_HEALING' });
       }
     } catch (error) {
-      console.warn(
-        `⚠️ Could not update page object: ${error instanceof Error ? error.message : error}`
-      );
+      logger.warn(`Could not update page object for ${pageName}`, { section: 'SELF_HEALING', details: { error: error instanceof Error ? error.message : String(error) } });
     }
   }
 
@@ -327,7 +290,7 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
     const stepsPath = path.resolve('src/step-definitions/generatedSteps.ts');
     
     if (!fs.existsSync(stepsPath)) {
-      console.warn(`⚠️ Step definitions file not found: ${stepsPath}`);
+      logger.warn(`Step definitions file not found: ${stepsPath}`, { section: 'SELF_HEALING' });
       return;
     }
 
@@ -347,14 +310,12 @@ ELEMENT_TYPE: input|button|text|heading|link|other`;
         // Update found, replace try-catch block with new implementation
         content = content.replace(stepPattern, `$1${newImplementation}\n  } catch (error)`);
         fs.writeFileSync(stepsPath, content);
-        console.log(`✅ Updated step definition for: "${stepText}"`);
+        logger.info(`Updated step definition for: "${stepText}"`, { section: 'SELF_HEALING' });
       } else {
-        console.warn(`⚠️ Could not find step definition pattern for: "${stepText}"`);
+        logger.warn(`Could not find step definition pattern for: "${stepText}"`, { section: 'SELF_HEALING' });
       }
     } catch (error) {
-      console.warn(
-        `⚠️ Could not update step definition: ${error instanceof Error ? error.message : error}`
-      );
+      logger.warn(`Could not update step definition for: "${stepText}"`, { section: 'SELF_HEALING', details: { error: error instanceof Error ? error.message : String(error) } });
     }
   }
 

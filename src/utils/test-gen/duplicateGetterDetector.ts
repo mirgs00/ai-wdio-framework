@@ -59,7 +59,7 @@ export class DuplicateGetterDetector {
       } catch (error) {
         logger.warn(`Failed to analyze page object: ${file}`, {
           section: 'DUPLICATE_DETECTOR',
-          error: error instanceof Error ? error.message : String(error),
+          details: { error: error instanceof Error ? error.message : String(error) },
         });
       }
     }
@@ -123,8 +123,8 @@ export class DuplicateGetterDetector {
         };
       }
 
-      let content = readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n');
+      let content = fs.readFileSync(filePath, 'utf-8');
+      const _lines = content.split('\n');
 
       for (const duplicate of report.duplicates) {
         const getterName = duplicate.getterName;
@@ -145,7 +145,7 @@ export class DuplicateGetterDetector {
 
       logger.info(`Fixed duplicate getters in ${report.pageName}`, {
         section: 'DUPLICATE_DETECTOR',
-        duplicatesFixed: report.duplicates.length,
+        details: { duplicatesFixed: report.duplicates.length },
       });
 
       return {
@@ -164,7 +164,7 @@ export class DuplicateGetterDetector {
   ): Array<{ name: string; selector: string; line: number }> {
     const getters: Array<{ name: string; selector: string; line: number }> = [];
 
-    const getterRegex = /get\s+(\w+)\s*\(\s*\)\s*{\s*return\s+\$\(['"`]([^'"`]+)['"`]\)/g;
+    const getterRegex = /(?:public\s+)?get\s+(\w+)\s*\(\s*\)[^{]*\{\s*return\s+\$\([']([^']*)[']\)/g;
 
     let match;
     while ((match = getterRegex.exec(content)) !== null) {
