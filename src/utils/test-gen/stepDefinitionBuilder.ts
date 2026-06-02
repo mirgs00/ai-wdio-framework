@@ -2,11 +2,13 @@ import 'dotenv/config';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { OllamaClient } from '../ai/ollamaClient';
+import type { LLMProvider } from '../ai/types';
 import { getDOMSnapshot } from '../dom/domParser';
 import { load } from 'cheerio';
 import { stepPatternGenerator } from './stepPatternGenerator';
 import { stepQualityValidator } from './qualityValidator';
 import { validateTypeScript } from '../validation/codeValidator';
+import { REGEX_PATTERNS, regexHelpers } from '../constants/regexPatterns';
 
 const STEP_DEFINITIONS_PATH = path.resolve('src/step-definitions');
 const GENERATED_STEPS_FILE = path.join(STEP_DEFINITIONS_PATH, 'generatedSteps.ts');
@@ -34,7 +36,7 @@ async function generatePageObjectFile(): Promise<void> {
  */
 function normalizeStepForDedup(stepText: string): string {
   // Replace any quoted string (double or single) with a placeholder
-  return stepText.replace(/"[^"]*"/g, '"<PARAM>"').replace(/'[^']*'/g, "'<PARAM>'");
+  return stepText.replace(REGEX_PATTERNS.STRING_WITH_DOUBLE_QUOTES, '"<PARAM>"').replace(REGEX_PATTERNS.STRING_WITH_SINGLE_QUOTES, "'<PARAM>'");
 }
 
 function extractStepsFromFeature(featureContent: string): string[] {
@@ -44,8 +46,8 @@ function extractStepsFromFeature(featureContent: string): string[] {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.match(/^\s*(Given|When|Then|And|But)\s+/)) {
-      const stepText = trimmed.replace(/^\s*(Given|When|Then|And|But)\s+/, '').trim();
+    if (trimmed.match(REGEX_PATTERNS.GHERKIN_KEYWORD)) {
+      const stepText = trimmed.replace(REGEX_PATTERNS.GHERKIN_KEYWORD, '').trim();
 
       if (stepText) {
         // Normalize the step to check for duplicates with different parameter values
@@ -149,7 +151,11 @@ function getPageElements(): PageElementInfo[] {
     }
 
     return elements;
-  } catch {
+  } catch (error) {
+    console.warn(
+      '⚠️ Failed to parse page elements from generated page object:',
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }
@@ -322,14 +328,14 @@ function _getAvailablePageMethods(): string[] {
 
 async function generateWithRetry(
   prompt: string,
-  ollamaClient: OllamaClient,
+  llmProvider: LLMProvider,
   retries = 2
 ): Promise<string> {
   let lastError: Error | null = null;
 
   while (retries-- > 0) {
     try {
-      const result = await ollamaClient.generateText(prompt, {
+      const result = await llmProvider.generateText(prompt, {
         temperature: 0.1,
         max_tokens: 150,
       });
@@ -385,7 +391,7 @@ async function generateStepImplementation(
   step: string,
   stepType: 'Given' | 'When' | 'Then' | 'And',
   parameters: string[],
-  ollamaClient: OllamaClient,
+  llmProvider: LLMProvider,
   context?: {
     pageElements?: PageElementInfo[];
     applicationContext?: string;
@@ -434,7 +440,7 @@ CRITICAL RULES:
 Now generate the implementation for: "${step}"`;
 
   try {
-    let implementation = await generateWithRetry(prompt, ollamaClient, 1);
+    let implementation = await generateWithRetry(prompt, llmProvider, 1);
 
     const trimmed = implementation.trim();
     if (!trimmed.startsWith('try {')) {
@@ -908,10 +914,24 @@ import { SessionStore } from '../utils/sessionStore';
 
 // Import page object instance
 let generatedPage: any;
-try { generatedPage = require('../page-objects/generatedPage').generatedPage; } catch (e) { console.warn('⚠️ Could not load generatedPage:', e instanceof Error ? e.message : e); }
-try { if (!generatedPage) generatedPage = require('../page-objects/generatedPage').default; } catch (e) { /* ignore */ }
+try {
+  generatedPage = require('../page-objects/generatedPage').generatedPage;
+} catch (e) {
+  console.warn('⚠️ Could not load generatedPage (named export):', e instanceof Error ? e.message : e);
+}
+
+try {
+  if (!generatedPage) {
+    generatedPage = require('../page-objects/generatedPage').default;
+  }
+} catch (e) {
+  console.warn('⚠️ Could not load generatedPage (default export):', e instanceof Error ? e.message : e);
+}
+
 if (!generatedPage) {
   console.error('❌ No page objects could be loaded. Run page object generation first.');
+  console.error('   Expected file: src/page-objects/generatedPage.ts');
+  console.error('   Run: npm run generate:page-objects');
 }
 
 dotenv.config();
@@ -1100,7 +1120,7 @@ function stripKeyword(step: string): string {
 
 export async function generateStepDefsFromMatrixScenarios(
   scenarios: ExtractedScenario[],
-  ollamaClient: OllamaClient,
+  llmProvider: LLMProvider,
   options?: { url?: string; applicationContext?: string }
 ): Promise<void> {
   if (!existsSync(STEP_DEFINITIONS_PATH)) {
@@ -1121,7 +1141,7 @@ export async function generateStepDefsFromMatrixScenarios(
         stepText,
         stepType,
         parameters,
-        ollamaClient,
+        llmProvider,
         {
           pageElements,
           applicationContext: options?.applicationContext || '',

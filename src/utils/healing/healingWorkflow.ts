@@ -7,7 +7,7 @@ import * as fs from 'fs';
 export interface WorkflowStep {
   name: string;
   status: 'pending' | 'in_progress' | 'success' | 'failed';
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface HealingWorkflowReport {
@@ -344,7 +344,7 @@ export class HealingWorkflow {
   private recordStep(
     name: string,
     status: 'pending' | 'in_progress' | 'success' | 'failed',
-    details?: Record<string, any>
+    details?: Record<string, unknown>
   ): void {
     this.steps.push({
       name,
@@ -417,8 +417,8 @@ export class HealingWorkflow {
    */
   private generateSummary(
     status: 'success' | 'failed',
-    preExecution: any,
-    recovery: any,
+    preExecution: HealingWorkflowReport['preExecutionValidation'],
+    recovery: HealingWorkflowReport['failureRecovery'],
     overallSuccessRate: number
   ): string {
     if (status === 'failed') {

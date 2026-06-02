@@ -6,7 +6,7 @@ import {
 } from './types'
 import { explorePage } from './stateExplorer'
 import { extractScenarios } from './scenarioExtractor'
-import { OllamaClient } from '../ai/ollamaClient'
+import type { LLMProvider } from '../ai/types'
 
 export interface DiscoveryResult {
   matrix: FlowMatrix
@@ -16,11 +16,11 @@ export interface DiscoveryResult {
 
 export async function discoverAndGenerate(
   url: string,
-  ollamaClient: OllamaClient,
+  llmProvider: LLMProvider,
   config: FlowMatrixConfig = DEFAULT_FLOW_CONFIG
 ): Promise<DiscoveryResult> {
   const result = await Promise.race([
-    explorePage(url, ollamaClient, config).then(({ matrix, log }) => ({ matrix, log })),
+    explorePage(url, llmProvider, config).then(({ matrix, log }) => ({ matrix, log })),
     new Promise<{ matrix: FlowMatrix; log: string[] }>((_, reject) =>
       setTimeout(
         () => reject(new Error(`Discovery timed out after ${config.totalTimeoutMs}ms`)),

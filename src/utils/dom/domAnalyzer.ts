@@ -1,5 +1,7 @@
 import crypto from 'crypto';
-import { load } from 'cheerio';
+import { load, type CheerioAPI, type Cheerio } from 'cheerio';
+import { type AnyNode } from 'domhandler';
+import { REGEX_PATTERNS, regexHelpers } from '../constants/regexPatterns';
 
 export interface FormField {
   name: string;
@@ -69,11 +71,11 @@ export function analyzeDOM(html: string): PageAnalysis {
   const errorIds = new Set<string>();
   const successIds = new Set<string>();
   errorElements.forEach((e) => {
-    const match = e.selector.match(/#(\w+)/);
+    const match = e.selector.match(REGEX_PATTERNS.ID_SELECTOR);
     if (match) errorIds.add(match[1]);
   });
   successElements.forEach((s) => {
-    const match = s.selector.match(/#(\w+)/);
+    const match = s.selector.match(REGEX_PATTERNS.ID_SELECTOR);
     if (match) successIds.add(match[1]);
   });
 
@@ -108,7 +110,7 @@ export function analyzeDOM(html: string): PageAnalysis {
   };
 }
 
-function extractPageDescription($: any): string {
+function extractPageDescription($: CheerioAPI): string {
   const metaDescription = $('meta[name="description"]').attr('content');
   if (metaDescription) return metaDescription;
 
@@ -121,28 +123,29 @@ function extractPageDescription($: any): string {
   return 'Web page';
 }
 
-function extractForms($: any): FormInfo[] {
+function extractForms($: CheerioAPI): FormInfo[] {
   const forms: FormInfo[] = [];
 
-  $('form').each((_: number, form: any) => {
+  $('form').each((_: number, form: AnyNode) => {
     const $form = $(form);
     const selector = $form.attr('id') ? `#${$form.attr('id')}` : 'form';
     const method = ($form.attr('method') || 'POST').toUpperCase();
     const action = $form.attr('action') || '';
 
     const fields: FormField[] = [];
-    $form.find('input, textarea, select').each((_: number, field: any) => {
+    $form.find('input, textarea, select').each((_: number, field: AnyNode) => {
       const $field = $(field);
-      const type = $field.attr('type') || $field.prop('tagName').toLowerCase();
+      const type = $field.attr('type') || $field.prop('tagName')?.toLowerCase() || '';
       const name = $field.attr('name') || $field.attr('id') || '';
       const id = $field.attr('id');
       const selector = id ? `#${id}` : name ? `[name="${name}"]` : '';
 
       if (selector) {
-        const required =
-          $field.prop('required') || $form.find(`label[for="${id}"]`).text().includes('*');
+        const required = !!(
+          $field.prop('required') || (id && $form.find(`label[for="${id}"]`).text().includes('*'))
+        );
         const placeholder = $field.attr('placeholder');
-        const label = $form.find(`label[for="${id}"]`).text().trim();
+        const label = id ? $form.find(`label[for="${id}"]`).text().trim() : '';
 
         const validation = inferFieldValidation($, field, type);
         const errorSelector = findErrorElementForField($, id);
@@ -176,13 +179,13 @@ function extractForms($: any): FormInfo[] {
   return forms;
 }
 
-function extractInputFields($: any): FormField[] {
+function extractInputFields($: CheerioAPI): FormField[] {
   const fields: FormField[] = [];
   const seen = new Set<string>();
 
-  $('input, textarea, select').each((_: number, field: any) => {
+  $('input, textarea, select').each((_: number, field: AnyNode) => {
     const $field = $(field);
-    const type = $field.attr('type') || $field.prop('tagName').toLowerCase();
+    const type = $field.attr('type') || $field.prop('tagName')?.toLowerCase() || 'text';
     const id = $field.attr('id');
     const name = $field.attr('name') || id || '';
     const selector = id ? `#${id}` : name ? `[name="${name}"]` : '';
@@ -192,9 +195,9 @@ function extractInputFields($: any): FormField[] {
     if (selector && !seen.has(selector)) {
       seen.add(selector);
 
-      const required = $field.prop('required');
+      const required = !!$field.prop('required');
       const placeholder = $field.attr('placeholder');
-      const label = $(`label[for="${id}"]`).text().trim();
+      const label = id ? $(`label[for="${id}"]`).text().trim() : '';
       const validation = inferFieldValidation($, field, type);
 
       fields.push({
@@ -212,14 +215,14 @@ function extractInputFields($: any): FormField[] {
   return fields;
 }
 
-function extractButtons($: any): Array<{ selector: string; text: string; type: string }> {
+function extractButtons($: CheerioAPI): Array<{ selector: string; text: string; type: string }> {
   const buttons: Array<{ selector: string; text: string; type: string }> = [];
   const seen = new Set<string>();
 
   const noisePatterns = ['toggle', 'menu', 'nav', 'hamburger', 'search-btn'];
 
   $('button, input[type="submit"], input[type="button"], input[type="reset"]').each(
-    (_: number, btn: any) => {
+    (_: number, btn: AnyNode) => {
       const $btn = $(btn);
       const id = $btn.attr('id') || '';
       const classStr = $btn.attr('class') || '';
@@ -254,7 +257,7 @@ function extractButtons($: any): Array<{ selector: string; text: string; type: s
   return buttons;
 }
 
-function extractLinks($: any): Array<{ selector: string; text: string; href: string }> {
+function extractLinks($: CheerioAPI): Array<{ selector: string; text: string; href: string }> {
   const links: Array<{ selector: string; text: string; href: string }> = [];
   const seen = new Set<string>();
 
@@ -271,7 +274,7 @@ function extractLinks($: any): Array<{ selector: string; text: string; href: str
     'instagram',
   ];
 
-  $('a[href]').each((_: number, link: any) => {
+  $('a[href]').each((_: number, link: AnyNode) => {
     const $link = $(link);
     const text = $link.text().trim();
     const href = $link.attr('href') || '';
@@ -308,12 +311,12 @@ function extractLinks($: any): Array<{ selector: string; text: string; href: str
   return links;
 }
 
-function extractHeadings($: any): Array<{ selector: string; level: number; text: string }> {
+function extractHeadings($: CheerioAPI): Array<{ selector: string; level: number; text: string }> {
   const headings: Array<{ selector: string; level: number; text: string }> = [];
   const seen = new Set<string>();
 
   for (let level = 1; level <= 6; level++) {
-    $(`h${level}`).each((_: number, heading: any) => {
+    $(`h${level}`).each((_: number, heading: AnyNode) => {
       const $heading = $(heading);
       const text = $heading.text().trim();
       const id = $heading.attr('id');
@@ -339,13 +342,13 @@ function extractHeadings($: any): Array<{ selector: string; level: number; text:
   return headings;
 }
 
-function extractErrorElements($: any): Array<{ selector: string; description: string }> {
+function extractErrorElements($: CheerioAPI): Array<{ selector: string; description: string }> {
   const errors: Array<{ selector: string; description: string }> = [];
   const seen = new Set<string>();
 
   $(
     '[class*="error"], [class*="error-message"], [role="alert"], .alert-danger, [id*="error"], [id="error"]'
-  ).each((_: number, el: any) => {
+  ).each((_: number, el: AnyNode) => {
     const $el = $(el);
     const id = $el.attr('id');
     const classes = $el.attr('class') || '';
@@ -364,14 +367,14 @@ function extractErrorElements($: any): Array<{ selector: string; description: st
   return errors;
 }
 
-function extractSuccessElements($: any): Array<{ selector: string; description: string }> {
+function extractSuccessElements($: CheerioAPI): Array<{ selector: string; description: string }> {
   const success: Array<{ selector: string; description: string }> = [];
   const seen = new Set<string>();
 
   // First, find elements with success-related classes
   $(
     '[class*="success"], [class*="success-message"], .alert-success, [class*="confirmation"], [id*="success"]'
-  ).each((_: number, el: any) => {
+  ).each((_: number, el: AnyNode) => {
     const $el = $(el);
     const id = $el.attr('id');
     const classes = $el.attr('class') || '';
@@ -388,7 +391,7 @@ function extractSuccessElements($: any): Array<{ selector: string; description: 
   });
 
   // Also check headings and paragraphs for success-related text
-  $('h1, h2, h3, p, div').each((_: number, el: any) => {
+  $('h1, h2, h3, p, div').each((_: number, el: AnyNode) => {
     const $el = $(el);
     const text = $el.text().trim().toLowerCase();
     const id = $el.attr('id');
@@ -404,14 +407,14 @@ function extractSuccessElements($: any): Array<{ selector: string; description: 
         selector = `#${id}`;
       } else if (classes) {
         const classList = classes.split(' ').filter((c: string) => c.length > 0);
-        const tagName = el.tagName.toLowerCase();
+        const tagName = (el as unknown as { tagName: string }).tagName.toLowerCase();
         if (classList.length > 0) {
           selector = `${tagName}.${classList[0]}`;
         } else {
           selector = tagName;
         }
       } else {
-        selector = el.tagName.toLowerCase();
+        selector = (el as unknown as { tagName: string }).tagName.toLowerCase();
       }
 
       if (selector && !seen.has(selector)) {
@@ -429,7 +432,7 @@ function extractSuccessElements($: any): Array<{ selector: string; description: 
 }
 
 function extractTextElements(
-  $: any,
+  $: CheerioAPI,
   errorIds: Set<string>,
   successIds: Set<string>
 ): Array<{ selector: string; text: string; tag: string }> {
@@ -461,7 +464,7 @@ function extractTextElements(
   const tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'article'];
 
   tags.forEach((tag) => {
-    $(tag).each((_: number, el: any) => {
+    $(tag).each((_: number, el: AnyNode) => {
       const $el = $(el);
       const text = $el.text().trim();
       const id = $el.attr('id') || '';
@@ -527,7 +530,7 @@ function extractTextElements(
   return textElements;
 }
 
-function inferFieldValidation($: any, field: any, type: string): string {
+function inferFieldValidation($: CheerioAPI, field: AnyNode, type: string): string {
   const $field = $(field);
   const pattern = $field.attr('pattern');
   const minLength = $field.attr('minlength');
@@ -550,7 +553,7 @@ function inferFieldValidation($: any, field: any, type: string): string {
   return validations.join(', ') || 'none';
 }
 
-function inferFormValidationPattern($form: any, fields: FormField[]): string {
+function inferFormValidationPattern($form: Cheerio<any>, fields: FormField[]): string {
   const patterns = [];
 
   for (const field of fields) {
@@ -566,7 +569,7 @@ function inferFormValidationPattern($form: any, fields: FormField[]): string {
   return 'Basic form validation';
 }
 
-function findErrorElementForField($: any, fieldId: string): string | undefined {
+function findErrorElementForField($: CheerioAPI, fieldId: string | undefined): string | undefined {
   if (!fieldId) return undefined;
 
   const $field = $(`#${fieldId}`);
@@ -587,7 +590,7 @@ function findErrorElementForField($: any, fieldId: string): string | undefined {
   return undefined;
 }
 
-function extractFormsubmit_button($: any, $form: any) {
+function extractFormsubmit_button($: CheerioAPI, $form: Cheerio<any>) {
   const submitBtn = $form.find('button[type="submit"], input[type="submit"]').first();
 
   if (submitBtn.length > 0) {

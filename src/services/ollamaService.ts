@@ -1,4 +1,4 @@
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, type ChildProcess } from 'child_process';
 import fetch from 'node-fetch';
 import { getConfig } from '../config';
 
@@ -7,7 +7,7 @@ import { getConfig } from '../config';
  * Automatically checks and starts Ollama service before tests run
  */
 export class OllamaService {
-  private ollamaProcess: any = null;
+  private ollamaProcess: ChildProcess | null = null;
   private ollamaStdoutListener: ((data: Buffer) => void) | null = null;
   private ollamaStderrListener: ((data: Buffer) => void) | null = null;
   private readonly OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
@@ -55,7 +55,7 @@ export class OllamaService {
       const timeoutId = setTimeout(() => controller.abort(), this.HEALTH_CHECK_TIMEOUT);
 
       const response = await fetch(this.HEALTH_CHECK_ENDPOINT, {
-        signal: controller.signal as any,
+        signal: controller.signal as AbortSignal,
       });
 
       clearTimeout(timeoutId);

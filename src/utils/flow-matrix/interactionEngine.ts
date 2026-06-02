@@ -1,22 +1,25 @@
 import { InteractiveElement } from './types'
-import { OllamaClient } from '../ai/ollamaClient'
+import type { LLMProvider } from '../ai/types'
 
 export interface BrowserContext {
-  url: (url: string) => Promise<void>
+  url: (url: string) => Promise<unknown>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   execute: <T>(fn: (...args: any[]) => T | Promise<T>, ...args: any[]) => Promise<T>
   $: (selector: string) => Promise<{
     click: () => Promise<void>
     setValue: (value: string) => Promise<void>
-    waitForDisplayed: (opts?: { timeout?: number }) => Promise<void>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    waitForDisplayed: (opts?: { timeout?: number }) => Promise<any>
     getText: () => Promise<string>
   }>
   keys: (keys: string | string[]) => Promise<void>
   getUrl: () => Promise<string>
   getTitle: () => Promise<string>
-  waitUntil: (condition: () => Promise<boolean>, opts?: { timeout?: number; timeoutMsg?: string }) => Promise<void>
+  waitUntil: (condition: () => Promise<boolean>, opts?: { timeout?: number; timeoutMsg?: string }) => Promise<unknown>
   pause: (ms: number) => Promise<void>
   closeSession: () => Promise<void>
-  $$: (selector: string) => Promise<Array<{ getTagName: () => Promise<string>; getAttribute: (name: string) => Promise<string | null>; getText: () => Promise<string> }>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  $$: (selector: string) => Promise<any>
 }
 
 export async function dismissOverlays(ctx: BrowserContext): Promise<void> {
@@ -123,7 +126,7 @@ function trimCache(): void {
 
 export async function generateFormData(
   elements: InteractiveElement[],
-  ollamaClient: OllamaClient
+  llmProvider: LLMProvider
 ): Promise<Record<string, string>> {
   const inputElements = elements.filter(
     (el) =>
@@ -170,7 +173,7 @@ JSON only, no markdown, no explanations:`
 
   try {
     const response = await Promise.race([
-      ollamaClient.generateText(prompt),
+      llmProvider.generateText(prompt),
       new Promise<string>((_, reject) =>
         setTimeout(() => reject(new Error('Form data AI timeout')), FORM_AI_TIMEOUT)
       ),

@@ -1,7 +1,8 @@
 import { browser } from '@wdio/globals';
 import { selfHealingService, HealingContext } from './selfHealingService';
 
-let pageContextManager: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pageContextManager: { getCurrentPage(): unknown; getAllPages(): Record<string, unknown> } | null = null;
 try {
   pageContextManager = require('../../page-objects/pageContextManager').default;
 } catch {
@@ -146,9 +147,11 @@ function classifyError(
  * When(/^user enters username "([^"]*)"$/, async function(username) { ... })
  */
 export function healableStep(description: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (...args: any[]) {
       return executeStepWithHealing(() => originalMethod.apply(this, args), {
         stepText: description,

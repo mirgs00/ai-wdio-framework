@@ -23,7 +23,7 @@ Feature: Full E-Commerce Flow for www.automationexercise.com
   Scenario: Register a new user account
     Given the user navigates to "https://www.automationexercise.com/login"
     When the user fills "input[data-qa='signup-name']" with "TestUser"
-    When the user fills "input[data-qa='signup-email']" with "ae_user_20260601_v5@test.com"
+    When the user fills "input[data-qa='signup-email']" with "ae_user_@TIMESTAMP@@test.com"
     When the user clicks element "button[data-qa='signup-button']"
     Then the URL should contain "/signup"
     When the user clicks "#id_gender1"
@@ -45,6 +45,10 @@ Feature: Full E-Commerce Flow for www.automationexercise.com
     When the user clicks element "button[data-qa='create-account']"
     Then the URL should contain "/account_created"
     Then the user should see "ACCOUNT CREATED"
+    When the user clicks "Continue"
+    When the user navigates to "https://www.automationexercise.com/delete_account"
+    Then the URL should contain "/delete_account"
+    Then the user should see "Account Deleted!"
     When the user clicks "Continue"
 
   @e2e @flow:products

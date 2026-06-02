@@ -1,10 +1,42 @@
-node_modules
-coverage/
+# ── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Build output ─────────────────────────────────────────────────────────────
+# I-02: compiled WDIO config JS must not be committed alongside the TS source
 build/
-apps/
-bun.lock
-commit_message.txt
+dist/
+wdio.conf.js
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+# I-01: .env must never be committed; use .env.example as the template
+.env
+.env.*
+!.env.example
+
+# ── Runtime artefacts ────────────────────────────────────────────────────────
+# I-03: logs and dev notes have no place in version history
 *.log
+commit_message.txt
+
+# ── Test output ──────────────────────────────────────────────────────────────
+coverage/
+screenshots/
+allure-results/
+allure-report/
+
+# ── Mobile apps (binaries) ───────────────────────────────────────────────────
+apps/
+
+# ── Tooling conflicts ─────────────────────────────────────────────────────────
+# I-18: project uses ESLint 8 (.eslintrc.json). Flat config file must not exist.
+eslint.config.js
+
+# ── Lock files (if using npm, keep package-lock.json; remove this line) ──────
+# package-lock.json is intentionally excluded per original .gitignore
+package-lock.json
+bun.lock
+
+# ── Generated / exploratory docs ─────────────────────────────────────────────
 *ANALYSIS*.md
 *analysis*.md
 *DIAGRAM*.md
@@ -12,6 +44,10 @@ commit_message.txt
 *GUIDE*.md
 *EXAMPLES*.md
 IMPROVEMENTS.md
-package-lock.json
-.env
 explorations/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo

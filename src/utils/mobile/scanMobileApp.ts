@@ -8,9 +8,16 @@ import { remote } from 'webdriverio';
  * Works for Android and iOS.
  * Requires an active WebDriverIO/Appium session.
  */
+interface MobileElementMetadata {
+  id: string | null;
+  label: string | null;
+  className: string | null;
+  bounds: string | null;
+}
+
 export async function scanMobileApp(platform: 'android' | 'ios') {
   const elements = await $$('*'); // All elements in current view
-  const metadata: any[] = [];
+  const metadata: MobileElementMetadata[] = [];
 
   for (const el of elements) {
     try {

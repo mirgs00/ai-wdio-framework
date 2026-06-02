@@ -4,12 +4,63 @@ import { buildStepDefinitions } from '../utils/test-gen/stepDefinitionBuilder';
 import { existsSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fetchDOM } from '../utils/dom/domParser';
-import { createOllamaClient } from '../utils/ai/ollamaClient';
+import { createOllamaClient, OllamaClient } from '../utils/ai/ollamaClient';
 import { parseInstructionFile } from '../utils/file-parser';
 import { TestGenerationConfig } from '../types';
 import { InputValidator } from '../utils/validation';
+import type { LLMProvider } from '../utils/ai/types';
+
+export interface TestGenerationServiceOptions {
+  llmProvider?: LLMProvider;
+}
 
 export class TestGenerationService {
+  private llmProvider: LLMProvider | null;
+
+  constructor(options: TestGenerationServiceOptions = {}) {
+    this.llmProvider = options.llmProvider || null;
+  }
+
+  /**
+   * Generate steps from a plain instruction string.
+   * This is a lightweight fallback used by tests and when AI is unavailable.
+   */
+  async generateSteps(instruction: string): Promise<{ steps: Array<{ type: 'Given' | 'When' | 'Then' | 'And' | 'But' ; text: string }> }> {
+    if (!instruction || instruction.trim().length === 0) {
+      return { steps: [] };
+    }
+
+    const rawParts = instruction
+      .split(/(?:[.?!]\s+)|\s+and\s+|;|\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const steps = rawParts.map((part) => {
+      const lower = part.toLowerCase();
+      let type: 'Given' | 'When' | 'Then' | 'And' | 'But' = 'When';
+
+      if (lower.includes('navigate') || lower.includes('open') || lower.includes('visit')) type = 'Given';
+      else if (lower.includes('should') || lower.includes('verify') || lower.includes('expect') || lower.includes('see') || lower.includes('assert')) type = 'Then';
+      else if (lower.includes('click') || lower.includes('submit') || lower.includes('fill') || lower.includes('enter') || lower.includes('type')) type = 'When';
+
+      const text = part.replace(/\s+/g, ' ').trim();
+      return { type, text };
+    });
+
+    return { steps };
+  }
+
+  private getLLMClient(config: TestGenerationConfig = {}): LLMProvider {
+    if (this.llmProvider) {
+      return this.llmProvider;
+    }
+    return createOllamaClient({
+      baseUrl: config.ollamaBaseUrl,
+      model: config.ollamaModel,
+      timeout: config.testTimeout,
+    });
+  }
+
   async generateTestArtifacts(
     url: string,
     instruction: string,
@@ -19,11 +70,7 @@ export class TestGenerationService {
     pageObjectPath: string;
     stepDefinitionsPath: string;
   }> {
-    const ollamaClient = createOllamaClient({
-      baseUrl: config.ollamaBaseUrl,
-      model: config.ollamaModel,
-      timeout: config.testTimeout,
-    });
+    const ollamaClient = this.getLLMClient(config);
 
     // Check Ollama availability upfront
     console.log('\n🔍 Checking Ollama service availability...');

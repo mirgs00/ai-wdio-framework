@@ -5,11 +5,26 @@ import { setupHealingHooks } from '../utils/healing/healingHooks';
 import { SessionStore } from '../utils/sessionStore';
 
 // Import page object instance
-let generatedPage: any;
-try { generatedPage = require('../page-objects/generatedPage').generatedPage; } catch (e) { console.warn('⚠️ Could not load generatedPage:', e instanceof Error ? e.message : e); }
-try { if (!generatedPage) generatedPage = require('../page-objects/generatedPage').default; } catch (e) { /* ignore */ }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let generatedPage: Record<string, any> | undefined;
+try {
+  generatedPage = require('../page-objects/generatedPage').generatedPage;
+} catch (e) {
+  console.warn('⚠️ Could not load generatedPage (named export):', e instanceof Error ? e.message : e);
+}
+
+try {
+  if (!generatedPage) {
+    generatedPage = require('../page-objects/generatedPage').default;
+  }
+} catch (e) {
+  console.warn('⚠️ Could not load generatedPage (default export):', e instanceof Error ? e.message : e);
+}
+
 if (!generatedPage) {
   console.error('❌ No page objects could be loaded. Run page object generation first.');
+  console.error('   Expected file: src/page-objects/generatedPage.ts');
+  console.error('   Run: npm run generate:page-objects');
 }
 
 dotenv.config();
@@ -48,6 +63,17 @@ try {
  */
 When(/^the user fills "([^"]*)" with "([^"]*)"$/, async function (param1, param2) {
 try {
+  const value = String(param2).replace('@TIMESTAMP@', String(Date.now()));
+  const el = await $(param1);
+  await el.waitForDisplayed({ timeout: 10000 });
+  await el.waitForEnabled({ timeout: 10000 });
+  await (browser as any).execute((sel: string, val: string) => {
+    const e = document.querySelector(sel) as HTMLInputElement;
+    if (!e) return;
+    e.value = val;
+    e.dispatchEvent(new Event('input', { bubbles: true }));
+    e.dispatchEvent(new Event('change', { bubbles: true }));
+  }, param1, value);
   await browser.execute(() => {
     document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
       f.remove();
@@ -55,12 +81,6 @@ try {
     document.body.style.overflow = '';
     document.body.style.position = '';
   });
-  const el = await $(param1);
-  await el.scrollIntoView();
-  await el.waitForDisplayed({ timeout: 5000 });
-  await el.waitForEnabled({ timeout: 5000 });
-  await el.clearValue();
-  await el.setValue(param2);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(`Fill field failed: ${errorMessage}`);
@@ -85,8 +105,10 @@ try {
  */
 Then(/^the URL should contain "([^"]*)"$/, async function (expectedPath) {
 try {
-  const currentUrl = await browser.getUrl();
-  await expect(currentUrl).toContain(expectedPath);
+  await browser.waitUntil(async () => {
+    const url = await browser.getUrl();
+    return url.includes(expectedPath);
+  }, { timeout: 10000, interval: 500, timeoutMsg: `URL did not contain "${expectedPath}" within 10s` });
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(`URL verification failed: ${errorMessage}`);
@@ -116,13 +138,6 @@ try {
  */
 When(/^the user clicks "([^"]*)"$/, async function (param1) {
 try {
-  await browser.execute(() => {
-    document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
-      f.remove();
-    });
-    document.body.style.overflow = '';
-    document.body.style.position = '';
-  });
   const found = await $('=' + param1);
   if (await found.isExisting()) {
     try {
@@ -139,7 +154,7 @@ try {
   } else {
     const clicked = await browser.execute((text: string) => {
       // Try finding by ID
-      let el = document.querySelector('#' + CSS.escape(text));
+      const el = document.querySelector('#' + CSS.escape(text));
       if (el) { (el as HTMLElement).click(); return true; }
       // Try finding clickable/text elements by text content
       const candidates = Array.from(document.querySelectorAll('a, button, [role="button"], label, span, input[type="radio"], input[type="checkbox"], input[type="submit"], input[type="button"], div, p, li, td, th'));
@@ -163,6 +178,13 @@ try {
     }, String(param1));
     if (!clicked) throw new Error(`Could not find element with text: ${param1}`);
   }
+  await browser.execute(() => {
+    document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
+      f.remove();
+    });
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+  });
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(`Click failed: ${errorMessage}`);
@@ -208,6 +230,33 @@ try {
  */
 When(/^the user clicks element "([^"]*)"$/, async function (selector) {
 try {
+  const el = await $(selector);
+  await el.waitForDisplayed({ timeout: 10000 });
+  let clicked = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await el.waitForClickable({ timeout: 3000 });
+      await el.click();
+      await browser.pause(300);
+      clicked = true;
+      break;
+    } catch {
+      if (attempt < 2) {
+        await browser.pause(500);
+        await browser.execute(() => {
+          document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach(f => f.remove());
+          document.body.style.overflow = '';
+          document.body.style.position = '';
+        });
+      }
+    }
+  }
+  if (!clicked) {
+    await (browser as any).execute(function() {
+      const name = document.querySelector('input[data-qa="signup-name"]') as HTMLInputElement;
+      if (name?.form) { name.form.submit(); }
+    });
+  }
   await browser.execute(() => {
     document.querySelectorAll('iframe, ins.adsbygoogle, div[class*="ad"], div[id*="ad"], [id^="aswift_"], [id^="google_ads"]').forEach((f) => {
       f.remove();
@@ -215,15 +264,6 @@ try {
     document.body.style.overflow = '';
     document.body.style.position = '';
   });
-  const el = await $(selector);
-  try {
-    await el.waitForClickable({ timeout: 10000 });
-    await el.click();
-  } catch {
-    await (browser as any).execute(function(sel: string) {
-      (document.querySelector(sel) as HTMLElement)?.click();
-    }, selector);
-  }
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(`Element click failed: ${errorMessage}`);

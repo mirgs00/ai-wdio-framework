@@ -266,6 +266,64 @@ class Logger {
     this.info(`🔧 Self-healing triggered for: ${testName}`, context);
   }
 
+  logFlowDiscovery(
+    stateCount: number,
+    transitionCount: number,
+    duration: number,
+    metadata?: Record<string, unknown>
+  ): void {
+    const context: LogContext = {
+      section: 'FLOW_DISCOVERY',
+      duration,
+      details: {
+        timestamp: new Date().toISOString(),
+        statesFound: stateCount,
+        transitionsFound: transitionCount,
+        ...metadata,
+      },
+    };
+    this.info(`🔍 Flow discovery complete: ${stateCount} states, ${transitionCount} transitions`, context);
+  }
+
+  logRadioCascade(
+    interactionCount: number,
+    maxDepth: number,
+    duration: number,
+    metadata?: Record<string, unknown>
+  ): void {
+    const context: LogContext = {
+      section: 'RADIO_CASCADE',
+      duration,
+      details: {
+        timestamp: new Date().toISOString(),
+        interactionsPerformed: interactionCount,
+        maxDepth,
+        ...metadata,
+      },
+    };
+    this.info(`🔘 Radio cascade completed: ${interactionCount} interactions`, context);
+  }
+
+  logServiceEvent(
+    eventName: string,
+    serviceName: string,
+    details?: Record<string, unknown>
+  ): void {
+    const context: LogContext = {
+      section: serviceName,
+      details: {
+        timestamp: new Date().toISOString(),
+        event: eventName,
+        ...details,
+      },
+    };
+    this.info(`📋 [${serviceName}] ${eventName}`, context);
+  }
+
+  child(section: string): LoggerProxy {
+    return new LoggerProxy(this, section);
+  }
+
   recordMetric(category: string, duration: number): void {
     if (!this.performanceMetrics.has(category)) {
       this.performanceMetrics.set(category, []);
@@ -292,6 +350,40 @@ class Logger {
     const summaryText = `\n\n===== ${title} =====\n${JSON.stringify(summary, null, 2)}\n`;
     console.log(summaryText);
     this.writeToFile(summaryText);
+  }
+}
+
+export class LoggerProxy {
+  private parent: Logger;
+  private section: string;
+
+  constructor(parent: Logger, section: string) {
+    this.parent = parent;
+    this.section = section;
+  }
+
+  debug(message: string, details?: Record<string, unknown>): void {
+    this.parent.debug(message, { section: this.section, details });
+  }
+
+  info(message: string, details?: Record<string, unknown>): void {
+    this.parent.info(message, { section: this.section, details });
+  }
+
+  warn(message: string, details?: Record<string, unknown>): void {
+    this.parent.warn(message, { section: this.section, details });
+  }
+
+  error(message: string, error?: unknown): void {
+    this.parent.error(message, error);
+  }
+
+  recordMetric(category: string, duration: number): void {
+    this.parent.recordMetric(category, duration);
+  }
+
+  logServiceEvent(eventName: string, details?: Record<string, unknown>): void {
+    this.parent.logServiceEvent(eventName, this.section, details);
   }
 }
 

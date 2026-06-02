@@ -5,7 +5,7 @@ try {
   dotenv = require('dotenv');
   dotenv.config();
 } catch {
-  console.warn('Warning: dotenv not fully loaded, continuing without .env support');
+  logger.warn('dotenv not fully loaded, continuing without .env support');
 }
 
 import * as path from 'path';
@@ -28,9 +28,10 @@ import { discoverAndGenerate } from './utils/flow-matrix/flowMatrixBuilder';
 import { buildPageObjectsFromStates } from './utils/test-gen/pageObjectBuilder';
 import { generateStepDefsFromMatrixScenarios } from './utils/test-gen/stepDefinitionBuilder';
 import { OllamaClient } from './utils/ai/ollamaClient';
+import { ServiceContainer } from './services/ServiceContainer';
+import { logger } from './utils/logger';
 
 // Services
-const testGenerationService = new TestGenerationService();
 const testRunnerService = new TestRunnerService();
 const selectorValidationService = new SelectorValidationService();
 
@@ -39,25 +40,25 @@ const selectorValidationService = new SelectorValidationService();
  */
 async function executeHealingWorkflow(): Promise<void> {
   try {
-    console.log('\n🔧 Starting comprehensive healing workflow...\n');
+    logger.info('\n🔧 Starting comprehensive healing workflow...\n');
 
     const workflow = new HealingWorkflow();
     const report = await workflow.executeWorkflow();
 
-    console.log(report.summary);
-    console.log(`\n⏱️ Workflow completed in ${report.duration}ms\n`);
+    logger.info(report.summary);
+    logger.info(`\n⏱️ Workflow completed in ${report.duration}ms\n`);
 
     if (report.steps.length > 0) {
-      console.log('📋 Workflow Steps:');
+      logger.info('📋 Workflow Steps:');
       for (const step of report.steps) {
         const icon = step.status === 'success' ? '✅' : step.status === 'failed' ? '❌' : '⏳';
-        console.log(`  ${icon} ${step.name}`);
+        logger.info(`  ${icon} ${step.name}`);
       }
     }
 
-    console.log('');
+    logger.info('');
   } catch (error) {
-    console.error('❌ Healing workflow error:', error instanceof Error ? error.message : error);
+    logger.error('❌ Healing workflow error', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
@@ -70,50 +71,50 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
     const pageObjectsDir = path.resolve('src/page-objects');
 
     if (!existsSync(pageObjectsDir)) {
-      console.error('❌ No page objects found. Please generate tests first.');
+      logger.error('❌ No page objects found. Please generate tests first.');
       process.exit(1);
     }
 
-    console.log('\n🔍 Checking for duplicate getters in page objects...\n');
+    logger.info('\n🔍 Checking for duplicate getters in page objects...\n');
 
     const reports = DuplicateGetterDetector.analyzePageObjects(pageObjectsDir);
 
     if (reports.length === 0) {
-      console.error('❌ No page objects found.');
+      logger.error('❌ No page objects found.');
       process.exit(1);
     }
 
     const formattedReport = DuplicateGetterDetector.generateReport(reports);
-    console.log(formattedReport);
+    logger.info(formattedReport);
 
     const reportsWithDuplicates = reports.filter((r) => r.hasDuplicates);
 
     if (reportsWithDuplicates.length === 0) {
-      console.log('✅ All page objects are clean!\n');
+      logger.info('✅ All page objects are clean!\n');
       process.exit(0);
     }
 
     if (fix) {
-      console.log('🔧 Fixing duplicate getters...\n');
+      logger.info('🔧 Fixing duplicate getters...\n');
 
       for (const report of reportsWithDuplicates) {
         const result = DuplicateGetterDetector.fixDuplicates(report.filePath, true);
-        console.log(`  ${result.message}`);
+        logger.info(`  ${result.message}`);
       }
 
-      console.log('\n✅ Duplicate getter fixes completed!\n');
+      logger.info('\n✅ Duplicate getter fixes completed!\n');
     } else {
-      console.log(
+      logger.info(
         '\n💡 To fix these duplicates automatically, run: ts-node src/cli.ts --check-duplicates --fix\n'
       );
     }
 
     process.exit(0);
   } catch (error) {
-    console.error(
-      '❌ Duplicate getter check error:',
-      error instanceof Error ? error.message : error
-    );
+      logger.error(
+        '❌ Duplicate getter check error',
+        error instanceof Error ? error : new Error(String(error))
+      );
     process.exit(1);
   }
 }
@@ -126,31 +127,32 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
     const failureReport = TestFailureTracker.getFailureReport();
 
     if (failureReport.failures.length === 0) {
-      console.log('\n✅ No failed tests found. All tests passed in the last run!');
+      logger.info('\n✅ No failed tests found. All tests passed in the last run!');
       process.exit(0);
     }
 
-    console.log('\n🔄 Re-running failed tests...');
-    console.log(`📊 Failed tests to re-run: ${failureReport.failures.length}`);
+    logger.info('\n🔄 Re-running failed tests...');
+    logger.info(`📊 Failed tests to re-run: ${failureReport.failures.length}`);
 
     failureReport.failures.forEach((failure, index) => {
-      console.log(`  ${index + 1}. ${failure.featureName} > ${failure.scenario}`);
+      logger.info(`  ${index + 1}. ${failure.featureName} > ${failure.scenario}`);
     });
 
     const instructionsPath = 'instructions-template.csv';
 
     if (!existsSync(instructionsPath)) {
-      console.error('\n❌ Instructions file not found. Cannot re-run failed tests.');
-      console.error(
+      logger.error('\n❌ Instructions file not found. Cannot re-run failed tests.');
+      logger.error(
         '   Please run test generation first with: ts-node src/cli.ts --instructions instructions-template.csv'
       );
       process.exit(1);
     }
 
-    console.log('\n🔄 Re-generating test artifacts from instructions...');
-    const { featureFilePath: _featureFilePath } = await testGenerationService.generateArtifactsFromInstructions(instructionsPath, config);
+    logger.info('\n🔄 Re-generating test artifacts from instructions...');
+    const rerunService = new TestGenerationService();
+    const { featureFilePath: _featureFilePath } = await rerunService.generateArtifactsFromInstructions(instructionsPath, config);
 
-    console.log('\n🧪 Re-running failed tests...');
+    logger.info('\n🧪 Re-running failed tests...');
 
     const failedFeatures = failureReport.failures
       .map((f) => `src/features/${f.featureName.toLowerCase().replace(/\s+/g, '_')}.feature`)
@@ -165,21 +167,21 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
       '--specFileRetries', '1',
     ];
 
-    console.log(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
+    logger.info(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
 
     try {
       execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
-      console.log('\n✅ Failed tests re-run completed successfully!');
+      logger.info('\n✅ Failed tests re-run completed successfully!');
       TestFailureTracker.clearFailures();
     } catch (error) {
-      console.error(
-        '\n❌ Re-run test execution failed:',
-        error instanceof Error ? error.message : error
+      logger.error(
+        '\n❌ Re-run test execution failed',
+        error instanceof Error ? error : new Error(String(error))
       );
       throw error;
     }
   } catch (error) {
-    console.error('\n❌ Failed test re-run error:', error instanceof Error ? error.message : error);
+    logger.error('\n❌ Failed test re-run error', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
@@ -192,7 +194,7 @@ async function rerunFailedStepsWithHealing(): Promise<void> {
   try {
     await rerunFailedStepsService.executeRerun();
   } catch (error) {
-    console.error('❌ Failed step rerun error:', error instanceof Error ? error.message : error);
+    logger.error('❌ Failed step rerun error', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
@@ -282,7 +284,7 @@ async function main(): Promise<void> {
     if (!url && !parsedArgs['instructions']) {
       const [firstArg] = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
       if (!firstArg) {
-        console.error(
+        logger.info(
           [
             '❌ Usage:',
             '  Mode 1 - URL (auto-discover flow matrix):',
@@ -345,7 +347,7 @@ async function main(): Promise<void> {
         ? parseInt(parsedArgs['max-radio-depth'], 10)
         : 3;
 
-    console.log(
+    logger.info(
       [
         `🚀 Starting flow-matrix-based test generation`,
         `📌 URL: ${validatedUrl}`,
@@ -363,7 +365,7 @@ async function main(): Promise<void> {
       timeout: aiTimeout,
     });
 
-    console.log('\n🔍 Discovering flow matrix...');
+    logger.info('\n🔍 Discovering flow matrix...');
     const maxDepth = typeof parsedArgs['max-depth'] === 'string' ? parseInt(parsedArgs['max-depth'], 10) : 3;
     const maxStates = typeof parsedArgs['max-states'] === 'string' ? parseInt(parsedArgs['max-states'], 10) : 20;
 
@@ -376,9 +378,9 @@ async function main(): Promise<void> {
       maxRadioDepth,
     });
 
-    console.log(`\n📊 Discovery complete: ${matrix.states.size} states, ${matrix.transitions.length} transitions`);
+    logger.info(`\n📊 Discovery complete: ${matrix.states.size} states, ${matrix.transitions.length} transitions`);
     for (const entry of log) {
-      console.log(`  ${entry}`);
+      logger.info(`  ${entry}`);
     }
 
     // Generate feature file
@@ -389,10 +391,10 @@ async function main(): Promise<void> {
     const featureFileName = `generated_${new URL(validatedUrl).hostname.replace(/\./g, '_')}.feature`;
     const featureFilePath = path.join(featuresDir, featureFileName);
     writeFileSync(featureFilePath, featureContent, 'utf-8');
-    console.log(`\n📝 Feature file: ${featureFilePath} (${scenarios.length} scenarios)`);
+    logger.info(`\n📝 Feature file: ${featureFilePath} (${scenarios.length} scenarios)`);
 
     // Generate page objects from discovered states
-    console.log('\n🏗️ Generating page objects...');
+    logger.info('\n🏗️ Generating page objects...');
     const statesArray = Array.from(matrix.states.values());
     await buildPageObjectsFromStates(
       statesArray.map((s) => ({
@@ -407,24 +409,24 @@ async function main(): Promise<void> {
     );
 
     // Generate step definitions
-    console.log('\n⚙️ Generating step definitions...');
+    logger.info('\n⚙️ Generating step definitions...');
     await generateStepDefsFromMatrixScenarios(scenarios, ollamaClient, { url: validatedUrl });
 
     // Run tests if requested
     if (shouldRunTests) {
       await testRunnerService.runTests(featureFilePath, config.testTimeout);
     } else {
-      console.log('\n⏭️ Skipping test execution (--no-run flag set)');
+      logger.info('\n⏭️ Skipping test execution (--no-run flag set)');
     }
 
-    console.log('\n🎉 Test generation completed successfully!');
+    logger.info('\n🎉 Test generation completed successfully!');
   } catch (error) {
-    console.error('\n❌ Error:', error instanceof Error ? error.message : error);
+    logger.error('\n❌ Error', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error('Unhandled error:', error);
+  logger.error('Unhandled error', error instanceof Error ? error : new Error(String(error)));
   process.exit(1);
 });

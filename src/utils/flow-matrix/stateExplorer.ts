@@ -19,7 +19,7 @@ import {
   sanitizeDescription,
   friendlySelector,
 } from './interactionEngine'
-import { OllamaClient } from '../ai/ollamaClient'
+import type { LLMProvider } from '../ai/types'
 
 export interface ExploreResult {
   matrix: FlowMatrix
@@ -58,7 +58,7 @@ async function ensureBrowser(): Promise<BrowserContext> {
 
 export async function explorePage(
   url: string,
-  ollamaClient: OllamaClient,
+  llmProvider: LLMProvider,
   config: FlowMatrixConfig = DEFAULT_FLOW_CONFIG
 ): Promise<ExploreResult> {
   const matrix: FlowMatrix = {
@@ -142,7 +142,7 @@ export async function explorePage(
             ctx,
             interaction,
             state,
-            ollamaClient
+            llmProvider
           )
           if (result) {
             const { newNode, transition } = result
@@ -559,7 +559,7 @@ async function executeInteraction(
   ctx: BrowserContext,
   interaction: Interaction,
   state: StateNode,
-  ollamaClient: OllamaClient
+  llmProvider: LLMProvider
 ): Promise<{ newNode: StateNode; transition: StateTransition } | null> {
   const fromId = state.id
 
@@ -575,7 +575,7 @@ async function executeInteraction(
         el.type !== 'checkbox' &&
         el.type !== 'radio'
     )
-    const formData = await generateFormData(formElements, ollamaClient)
+    const formData = await generateFormData(formElements, llmProvider)
     await fillForm(ctx, formElements, formData)
 
     const submitBtn = state.elements.find(
@@ -594,7 +594,7 @@ async function executeInteraction(
       (el) => el.selector === interaction.selector
     )
     if (inputEl) {
-      const formData = await generateFormData([inputEl], ollamaClient)
+      const formData = await generateFormData([inputEl], llmProvider)
       await fillForm(ctx, [inputEl], formData)
       interaction.data = formData
     }
