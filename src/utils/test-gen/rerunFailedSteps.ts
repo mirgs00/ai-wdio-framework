@@ -103,30 +103,30 @@ export class RerunFailedSteps {
         } as Record<string, unknown>,
       });
 
-      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║ 🔁 REGENERATING STEP ARTIFACTS                                 ║`);
-      console.log(`╠════════════════════════════════════════════════════════════════╣`);
-      console.log(`║ Feature: ${failure.feature}`);
-      console.log(`║ Scenario: ${failure.scenario}`);
-      console.log(`║ Step: ${failure.step}`);
-      console.log(`║ URL: ${failure.url}`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
+      logger.info(`\n╔════════════════════════════════════════════════════════════════╗`);
+      logger.info(`║ 🔁 REGENERATING STEP ARTIFACTS                                 ║`);
+      logger.info(`╠════════════════════════════════════════════════════════════════╣`);
+      logger.info(`║ Feature: ${failure.feature}`);
+      logger.info(`║ Scenario: ${failure.scenario}`);
+      logger.info(`║ Step: ${failure.step}`);
+      logger.info(`║ URL: ${failure.url}`);
+      logger.info(`╚════════════════════════════════════════════════════════════════╝\n`);
 
       // Fetch current DOM
-      console.log('🌐 Fetching DOM from URL...');
+      logger.info('🌐 Fetching DOM from URL...');
       const domContent = await fetchDOM(failure.url);
 
       if (!domContent) {
-        console.error('❌ Failed to fetch DOM');
+        logger.error('❌ Failed to fetch DOM');
         return false;
       }
 
-      console.log('✅ DOM fetched successfully');
+      logger.info('✅ DOM fetched successfully');
 
       // Rebuild page objects
-      console.log('🏗️ Rebuilding page object...');
+      logger.info('🏗️ Rebuilding page object...');
       await buildPageObjects(failure.url, domContent);
-      console.log('✅ Page object regenerated');
+      logger.info('✅ Page object regenerated');
 
       logger.info('Step artifacts regenerated successfully', {
         section: 'RERUN_SERVICE',
@@ -135,7 +135,7 @@ export class RerunFailedSteps {
 
       return true;
     } catch (error) {
-      console.error(
+      logger.error(
         `❌ Failed to regenerate step: ${error instanceof Error ? error.message : error}`
       );
       logger.error(`Failed to regenerate step: ${failure.step}`, error as Error);
@@ -154,44 +154,44 @@ export class RerunFailedSteps {
       const failures = this.readFailureLog();
 
       if (failures.length === 0) {
-        console.log('\n✅ No failed steps found. All tests passed!');
+        logger.info('\n✅ No failed steps found. All tests passed!');
         return;
       }
 
-      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║ 🔁 RERUN WORKFLOW: Healing Failed Steps                        ║`);
-      console.log(`╠════════════════════════════════════════════════════════════════╣`);
-      console.log(`║ Failed steps to heal: ${failures.length}`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
+      logger.info(`\n╔════════════════════════════════════════════════════════════════╗`);
+      logger.info(`║ 🔁 RERUN WORKFLOW: Healing Failed Steps                        ║`);
+      logger.info(`╠════════════════════════════════════════════════════════════════╣`);
+      logger.info(`║ Failed steps to heal: ${failures.length}`);
+      logger.info(`╚════════════════════════════════════════════════════════════════╝\n`);
 
       // Group failures by feature for efficient regeneration
       const failuresByFeature = this.groupByFeature(failures);
 
       for (const [feature, steps] of Object.entries(failuresByFeature)) {
-        console.log(`\n📋 Processing feature: ${feature} (${steps.length} failed step(s))`);
+        logger.info(`\n📋 Processing feature: ${feature} (${steps.length} failed step(s))`);
 
         for (const step of steps) {
           const regenerated = await this.regenerateStep(step);
 
           if (!regenerated) {
-            console.warn(`⚠️ Failed to regenerate step: ${step.step}`);
+            logger.warn(`⚠️ Failed to regenerate step: ${step.step}`);
           }
         }
       }
 
-      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║ ✅ Artifact Regeneration Complete                              ║`);
-      console.log(`║ 🧪 Ready to re-run tests with updated artifacts                 ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
+      logger.info(`\n╔════════════════════════════════════════════════════════════════╗`);
+      logger.info(`║ ✅ Artifact Regeneration Complete                              ║`);
+      logger.info(`║ 🧪 Ready to re-run tests with updated artifacts                 ║`);
+      logger.info(`╚════════════════════════════════════════════════════════════════╝\n`);
 
       // Re-run tests
       await this.rerunTests(failuresByFeature);
 
       // Clear log after successful rerun
       this.clearFailureLog();
-      console.log('✅ Rerun log cleared - all steps have been healed!');
+      logger.info('✅ Rerun log cleared - all steps have been healed!');
     } catch (error) {
-      console.error(`❌ Rerun workflow error: ${error instanceof Error ? error.message : error}`);
+      logger.error(`❌ Rerun workflow error: ${error instanceof Error ? error.message : error}`);
       logger.error('Rerun workflow failed', error as Error);
       throw error;
     }
@@ -220,7 +220,7 @@ export class RerunFailedSteps {
     try {
       const features = Object.keys(failuresByFeature);
 
-      console.log(`\n🧪 Re-running ${features.length} feature file(s)...\n`);
+      logger.info(`\n🧪 Re-running ${features.length} feature file(s)...\n`);
 
       // Build WDIO args array (no shell interpolation = no command injection)
       const specArgs = features.flatMap((feature) => {
@@ -235,17 +235,17 @@ export class RerunFailedSteps {
         '--specFileRetries', '1',
       ];
 
-      console.log(`🚀 Executing: npx wdio ${wdioArgs.join(' ')}\n`);
+      logger.info(`🚀 Executing: npx wdio ${wdioArgs.join(' ')}\n`);
 
       try {
         execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
-        console.log('\n✅ Rerun tests completed successfully!');
+        logger.info('\n✅ Rerun tests completed successfully!');
       } catch (error) {
-        console.error('\n⚠️ Some tests failed during rerun');
+        logger.error('\n⚠️ Some tests failed during rerun');
         throw error;
       }
     } catch (error) {
-      console.error(`❌ Test rerun failed: ${error instanceof Error ? error.message : error}`);
+      logger.error(`❌ Test rerun failed: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
   }

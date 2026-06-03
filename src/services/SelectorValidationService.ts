@@ -5,6 +5,7 @@ import {
   generateValidationReport,
   exportValidationResults,
 } from '../utils/healing/selectorValidator';
+import { logger } from '../utils/logger';
 
 export class SelectorValidationService {
   /**
@@ -13,11 +14,11 @@ export class SelectorValidationService {
    */
   async validateSelectors(): Promise<void> {
     try {
-      console.log('\n🔍 Starting selector validation...');
+      logger.info('\n🔍 Starting selector validation...');
 
       const pageObjectsDir = path.resolve('src/page-objects');
       if (!fs.existsSync(pageObjectsDir)) {
-        console.error('❌ No page objects found. Please generate tests first.');
+        logger.error('❌ No page objects found. Please generate tests first.');
         process.exit(1);
       }
 
@@ -57,11 +58,11 @@ export class SelectorValidationService {
       }
 
       if (Object.keys(pages).length === 0) {
-        console.error('❌ No selectors found in page objects.');
+        logger.error('❌ No selectors found in page objects.');
         process.exit(1);
       }
 
-      console.log(`\n📋 Found ${Object.keys(pages).length} page object(s) with selectors`);
+      logger.info(`\n📋 Found ${Object.keys(pages).length} page object(s) with selectors`);
 
       // Open browser and validate selectors
       const { remote } = await import('webdriverio');
@@ -74,7 +75,7 @@ export class SelectorValidationService {
 
         for (const [pageName, pageData] of Object.entries(pages)) {
           if (pageData.url) {
-            console.log(`\n🌐 Opening ${pageName} page: ${pageData.url}`);
+            logger.info(`\n🌐 Opening ${pageName} page: ${pageData.url}`);
             await browser.url(pageData.url);
 
             // Wait for page to load
@@ -90,7 +91,7 @@ export class SelectorValidationService {
 
         // Print report
         const report = generateValidationReport(results);
-        console.log(report);
+        logger.info(report);
 
         // Export results
         const resultsFile = path.resolve('selector-validation-results.json');
@@ -99,16 +100,16 @@ export class SelectorValidationService {
         // Exit with appropriate code
         const hasErrors = results.some((r) => r.invalidSelectors > 0);
         if (hasErrors) {
-          console.error('\n❌ Selector validation failed. Some selectors are broken.');
+          logger.error('\n❌ Selector validation failed. Some selectors are broken.');
           process.exit(1);
         } else {
-          console.log('\n✅ All selectors are valid!');
+          logger.info('\n✅ All selectors are valid!');
         }
       } finally {
         await browser.deleteSession();
       }
     } catch (error) {
-      console.error('❌ Selector validation error:', error instanceof Error ? error.message : error);
+      logger.error(`❌ Selector validation error: ${error instanceof Error ? error.message : error}`);
       process.exit(1);
     }
   }

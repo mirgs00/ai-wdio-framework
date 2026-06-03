@@ -9,6 +9,7 @@ import { parseInstructionFile } from '../utils/file-parser';
 import { TestGenerationConfig } from '../types';
 import { InputValidator } from '../utils/validation';
 import type { LLMProvider } from '../utils/ai/types';
+import { logger } from '../utils/logger';
 
 export interface TestGenerationServiceOptions {
   llmProvider?: LLMProvider;
@@ -73,30 +74,30 @@ export class TestGenerationService {
     const ollamaClient = this.getLLMClient(config);
 
     // Check Ollama availability upfront
-    console.log('\n🔍 Checking Ollama service availability...');
+    logger.info('\n🔍 Checking Ollama service availability...');
     const ollamaAvailable = await ollamaClient.checkHealth();
     if (!ollamaAvailable) {
-      console.warn('\n⚠️  ═════════════════════════════════════════════════════════════════');
-      console.warn('⚠️  NOTICE: Ollama service is not running');
-      console.warn('⚠️  ═════════════════════════════════════════════════════════════════');
-      console.warn('⚠️  Generation will proceed with BASIC step templates');
-      console.warn('⚠️  AI-powered optimization is temporarily disabled');
-      console.warn('⚠️  ');
-      console.warn('⚠️  To enable AI features later, run in another terminal:');
-      console.warn('⚠️    npm run ollama:start');
-      console.warn('⚠️  ═════════════════════════════════════════════════════════════════\n');
+      logger.warn('\n⚠️  ═════════════════════════════════════════════════════════════════');
+      logger.warn('⚠️  NOTICE: Ollama service is not running');
+      logger.warn('⚠️  ═════════════════════════════════════════════════════════════════');
+      logger.warn('⚠️  Generation will proceed with BASIC step templates');
+      logger.warn('⚠️  AI-powered optimization is temporarily disabled');
+      logger.warn('⚠️  ');
+      logger.warn('⚠️  To enable AI features later, run in another terminal:');
+      logger.warn('⚠️    npm run ollama:start');
+      logger.warn('⚠️  ═════════════════════════════════════════════════════════════════\n');
     } else {
-      console.log('✅ Ollama service is ready - AI-powered generation enabled!\n');
+      logger.info('✅ Ollama service is ready - AI-powered generation enabled!\n');
     }
 
-    console.log('\n🌐 Fetching DOM from:', url);
+    logger.info(`\n🌐 Fetching DOM from: ${url}`);
     const domContent = await fetchDOM(url);
 
-    console.log('\n🏗️ Building page object...');
+    logger.info('\n🏗️ Building page object...');
     await buildPageObjects(url, domContent);
     const pageObjectPath = path.resolve('src/page-objects/generatedPage.ts');
 
-    console.log('\n🎯 Generating scenarios and step definitions...');
+    logger.info('\n🎯 Generating scenarios and step definitions...');
     const featureFilePath = await buildScenario(url, instruction);
 
     const stepDefinitionsPath = path.resolve('src/step-definitions/generatedSteps.ts');
@@ -116,7 +117,7 @@ export class TestGenerationService {
       throw new Error(`Instructions file not found: ${instructionsPath}`);
     }
 
-    console.log('\n📖 Loading instructions from:', instructionsPath);
+    logger.info(`\n📖 Loading instructions from: ${instructionsPath}`);
     const instructions = await parseInstructionFile(instructionsPath);
 
     const url = instructions.url;
@@ -126,34 +127,34 @@ export class TestGenerationService {
          throw new Error(`Invalid or missing URL in instructions file. URL must be http(s):// format`);
     }
 
-    console.log(`✅ Project: ${instructions.projectName}`);
-    console.log(`✅ URL: ${url}`);
-    console.log(`✅ Description: ${instructions.description}`);
-    console.log(`✅ Test cases: ${instructions.testCases.length}`);
+    logger.info(`✅ Project: ${instructions.projectName}`);
+    logger.info(`✅ URL: ${url}`);
+    logger.info(`✅ Description: ${instructions.description}`);
+    logger.info(`✅ Test cases: ${instructions.testCases.length}`);
 
     // 1. Fetch the real DOM from the URL
-    console.log('\n🌐 Fetching DOM from URL for real page analysis...');
+    logger.info('\n🌐 Fetching DOM from URL for real page analysis...');
     const domContent = await fetchDOM(url);
 
     // 2. Build page objects from the actual DOM (not keyword guesses)
-    console.log('\n🏗️ Building page objects from real DOM...');
+    logger.info('\n🏗️ Building page objects from real DOM...');
     await buildPageObjects(url, domContent);
     const pageObjectPath = path.resolve('src/page-objects/generatedPage.ts');
-    console.log(`✅ Page Object saved: ${pageObjectPath}`);
+    logger.info(`✅ Page Object saved: ${pageObjectPath}`);
 
     // 3. Generate the feature file from the instructions' test cases
-    console.log('\n📝 Generating feature file from instructions...');
+    logger.info('\n📝 Generating feature file from instructions...');
     const featureContent = generateFeatureFromInstructions(instructions);
     const featureFileName = `${instructions.projectName.toLowerCase().replace(/\s+/g, '_')}.feature`;
     const featureFilePath = path.resolve('src/features', featureFileName);
     writeFileSync(featureFilePath, featureContent);
-    console.log(`✅ Feature File saved: ${featureFilePath}`);
+    logger.info(`✅ Feature File saved: ${featureFilePath}`);
 
     // 4. Generate step definitions from the real DOM and page objects
-    console.log('\n📋 Generating step definitions with real selectors...');
+    logger.info('\n📋 Generating step definitions with real selectors...');
     const stepDefinitionsPath = path.resolve('src/step-definitions/generatedSteps.ts');
     await buildStepDefinitions(featureContent, url, domContent);
-    console.log(`✅ Step Definitions saved: ${stepDefinitionsPath}`);
+    logger.info(`✅ Step Definitions saved: ${stepDefinitionsPath}`);
 
     return { featureFilePath, pageObjectPath, stepDefinitionsPath };
   }

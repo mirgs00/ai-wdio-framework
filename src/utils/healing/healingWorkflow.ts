@@ -36,8 +36,12 @@ export class HealingWorkflow {
   private steps: WorkflowStep[] = [];
   private startTime: number = 0;
 
-  constructor(pageObjectsDir: string = path.resolve('src/page-objects')) {
-    this.healingService = new HealingService(pageObjectsDir);
+  constructor(pageObjectsDirOrService?: string | HealingService) {
+    if (pageObjectsDirOrService instanceof HealingService) {
+      this.healingService = pageObjectsDirOrService;
+    } else {
+      this.healingService = new HealingService(pageObjectsDirOrService);
+    }
   }
 
   /**

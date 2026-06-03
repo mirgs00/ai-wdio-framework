@@ -15,8 +15,17 @@ const config: Config = {
       tsconfig: {
         types: ['node', 'jest'],
         esModuleInterop: true,
-      }
+      },
+      diagnostics: {
+        ignoreCodes: [2307, 7006],
+      },
     }],
+  },
+  moduleNameMapper: {
+    '^node-fetch$': '<rootDir>/test/__mocks__/node-fetch.ts',
+    '^papaparse$': '<rootDir>/test/__mocks__/papaparse.ts',
+    '^mammoth$': '<rootDir>/test/__mocks__/mammoth.ts',
+    '^exceljs$': '<rootDir>/test/__mocks__/exceljs.ts',
   },
 };
 

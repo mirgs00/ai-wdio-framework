@@ -2,11 +2,12 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import { quote } from 'shell-quote';
 import { TIMEOUTS } from '../utils/constants';
+import { logger } from '../utils/logger';
 
 export class TestRunnerService {
   runTests(featureFilePath: string, timeout: number = TIMEOUTS.DEFAULT_TEST_TIMEOUT): void {
     try {
-      console.log('\n🧪 Running generated tests...');
+      logger.info('\n🧪 Running generated tests...');
       const absFeaturePath = path.resolve(featureFilePath);
 
       const wdioArgs = [
@@ -16,11 +17,11 @@ export class TestRunnerService {
         '--specFileRetries', '1',
       ];
 
-      console.log(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
+      logger.info(`🚀 Test command: npx wdio ${wdioArgs.join(' ')}`);
       execSync(`npx wdio ${quote(wdioArgs)}`, { stdio: 'inherit' });
-      console.log('✅ Tests completed successfully!');
+      logger.info('✅ Tests completed successfully!');
     } catch (error) {
-      console.error('❌ Test execution failed:', error instanceof Error ? error.message : error);
+      logger.error(`❌ Test execution failed: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
   }

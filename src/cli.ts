@@ -31,18 +31,14 @@ import { OllamaClient } from './utils/ai/ollamaClient';
 import { ServiceContainer } from './services/ServiceContainer';
 import { logger } from './utils/logger';
 
-// Services
-const testRunnerService = new TestRunnerService();
-const selectorValidationService = new SelectorValidationService();
-
 /**
  * Executes the comprehensive healing workflow
  */
-async function executeHealingWorkflow(): Promise<void> {
+async function executeHealingWorkflow(container: ServiceContainer): Promise<void> {
   try {
     logger.info('\n🔧 Starting comprehensive healing workflow...\n');
 
-    const workflow = new HealingWorkflow();
+    const workflow = new HealingWorkflow(container.healingService);
     const report = await workflow.executeWorkflow();
 
     logger.info(report.summary);
@@ -122,7 +118,10 @@ async function checkDuplicateGetters(fix: boolean = false): Promise<void> {
 /**
  * Re-runs failed tests from the last test execution
  */
-async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void> {
+async function rerunFailedTests(
+  config: TestGenerationConfig = {},
+  testGenerationService?: TestGenerationService
+): Promise<void> {
   try {
     const failureReport = TestFailureTracker.getFailureReport();
 
@@ -149,8 +148,8 @@ async function rerunFailedTests(config: TestGenerationConfig = {}): Promise<void
     }
 
     logger.info('\n🔄 Re-generating test artifacts from instructions...');
-    const rerunService = new TestGenerationService();
-    const { featureFilePath: _featureFilePath } = await rerunService.generateArtifactsFromInstructions(instructionsPath, config);
+    const service = testGenerationService || new TestGenerationService();
+    const { featureFilePath: _featureFilePath } = await service.generateArtifactsFromInstructions(instructionsPath, config);
 
     logger.info('\n🧪 Re-running failed tests...');
 
@@ -245,7 +244,8 @@ async function main(): Promise<void> {
     // Handle --validate flag (standalone, no test generation)
     if (shouldValidate) {
       validateEnvironment();
-      await selectorValidationService.validateSelectors();
+      const validator = new SelectorValidationService();
+      await validator.validateSelectors();
       process.exit(0);
     }
 
@@ -273,7 +273,10 @@ async function main(): Promise<void> {
     // Handle --healing flag (standalone, execute healing workflow)
     if (shouldRunHealing) {
       validateEnvironment();
-      await executeHealingWorkflow();
+      const healingContainer = new ServiceContainer({
+        llmProvider: new OllamaClient({ model: config.ollamaModel, maxRetries: 0, timeout: 15000 }),
+      });
+      await executeHealingWorkflow(healingContainer);
       process.exit(0);
     }
 
@@ -359,17 +362,19 @@ async function main(): Promise<void> {
       ].join('\n')
     );
 
-    const ollamaClient = new OllamaClient({
-      model: config.ollamaModel,
-      maxRetries: 0,
-      timeout: aiTimeout,
+    const container = new ServiceContainer({
+      llmProvider: new OllamaClient({
+        model: config.ollamaModel,
+        maxRetries: 0,
+        timeout: aiTimeout,
+      }),
     });
 
     logger.info('\n🔍 Discovering flow matrix...');
     const maxDepth = typeof parsedArgs['max-depth'] === 'string' ? parseInt(parsedArgs['max-depth'], 10) : 3;
     const maxStates = typeof parsedArgs['max-states'] === 'string' ? parseInt(parsedArgs['max-states'], 10) : 20;
 
-    const { matrix, scenarios, log } = await discoverAndGenerate(validatedUrl, ollamaClient, {
+    const { matrix, scenarios, log } = await discoverAndGenerate(validatedUrl, container.llmProvider, {
       maxDepth,
       maxStates,
       maxInteractionsPerState: 5,
@@ -410,11 +415,11 @@ async function main(): Promise<void> {
 
     // Generate step definitions
     logger.info('\n⚙️ Generating step definitions...');
-    await generateStepDefsFromMatrixScenarios(scenarios, ollamaClient, { url: validatedUrl });
+    await generateStepDefsFromMatrixScenarios(scenarios, container.llmProvider, { url: validatedUrl });
 
     // Run tests if requested
     if (shouldRunTests) {
-      await testRunnerService.runTests(featureFilePath, config.testTimeout);
+      await container.testRunnerService.runTests(featureFilePath, config.testTimeout);
     } else {
       logger.info('\n⏭️ Skipping test execution (--no-run flag set)');
     }

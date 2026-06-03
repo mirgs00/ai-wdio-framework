@@ -9,6 +9,7 @@ import { stepPatternGenerator } from './stepPatternGenerator';
 import { stepQualityValidator } from './qualityValidator';
 import { validateTypeScript } from '../validation/codeValidator';
 import { REGEX_PATTERNS, regexHelpers } from '../constants/regexPatterns';
+import { logger } from '../logger';
 
 const STEP_DEFINITIONS_PATH = path.resolve('src/step-definitions');
 const GENERATED_STEPS_FILE = path.join(STEP_DEFINITIONS_PATH, 'generatedSteps.ts');
@@ -57,7 +58,7 @@ function extractStepsFromFeature(featureContent: string): string[] {
           steps.push(stepText);
           normalizedSteps.add(normalized);
         } else {
-          console.log(`ℹ️  Skipping duplicate step pattern: "${stepText}"`);
+          logger.info(`ℹ️  Skipping duplicate step pattern: "${stepText}"`);
         }
       }
     }
@@ -152,9 +153,8 @@ function getPageElements(): PageElementInfo[] {
 
     return elements;
   } catch (error) {
-    console.warn(
-      '⚠️ Failed to parse page elements from generated page object:',
-      error instanceof Error ? error.message : String(error)
+    logger.warn(
+      `⚠️ Failed to parse page elements from generated page object: ${error instanceof Error ? error.message : String(error)}`
     );
     return [];
   }
@@ -223,9 +223,8 @@ Do NOT include Gherkin syntax, just the scenario descriptions.`;
 
     return scenarios.slice(0, 5); // Limit to 5 suggestions
   } catch (error) {
-    console.warn(
-      '⚠️ Could not discover scenarios with Ollama:',
-      error instanceof Error ? error.message : error
+    logger.warn(
+      `⚠️ Could not discover scenarios with Ollama: ${error instanceof Error ? error.message : error}`
     );
     return [];
   }
@@ -449,8 +448,8 @@ Now generate the implementation for: "${step}"`;
 
     return implementation;
   } catch (error) {
-    console.warn(`⚠️ AI generation failed for "${step}": ${(error as Error).message}`);
-    console.warn(`   → Using fallback implementation`);
+    logger.warn(`⚠️ AI generation failed for "${step}": ${(error as Error).message}`);
+    logger.warn(`   → Using fallback implementation`);
     return fallback;
   }
 }
@@ -891,13 +890,13 @@ function deduplicateSteps(stepDefinitions: StepDefinition[]): StepDefinition[] {
       const existingStep = seenPatterns.get(key);
       const message = `⚠️  Skipping duplicate pattern: ${step.type}(/${step.pattern}/) for "${step.originalText}" (already exists for "${existingStep?.originalText}")`;
       duplicateLogs.push(message);
-      console.log(message);
+      logger.info(message);
     }
   }
 
   // Log summary if duplicates were found
   if (duplicateLogs.length > 0) {
-    console.log(
+    logger.info(
       `\n📌 Deduplication Summary: Found and removed ${duplicateLogs.length} duplicate step definition(s)`
     );
   }
@@ -911,13 +910,14 @@ import { expect, browser, $ } from '@wdio/globals';
 import dotenv from 'dotenv';
 import { setupHealingHooks } from '../utils/healing/healingHooks';
 import { SessionStore } from '../utils/sessionStore';
+import { logger } from '../utils/logger';
 
 // Import page object instance
 let generatedPage: any;
 try {
   generatedPage = require('../page-objects/generatedPage').generatedPage;
 } catch (e) {
-  console.warn('⚠️ Could not load generatedPage (named export):', e instanceof Error ? e.message : e);
+  logger.warn('⚠️ Could not load generatedPage (named export): ' + (e instanceof Error ? e.message : e));
 }
 
 try {
@@ -925,13 +925,13 @@ try {
     generatedPage = require('../page-objects/generatedPage').default;
   }
 } catch (e) {
-  console.warn('⚠️ Could not load generatedPage (default export):', e instanceof Error ? e.message : e);
+  logger.warn('⚠️ Could not load generatedPage (default export): ' + (e instanceof Error ? e.message : e));
 }
 
 if (!generatedPage) {
-  console.error('❌ No page objects could be loaded. Run page object generation first.');
-  console.error('   Expected file: src/page-objects/generatedPage.ts');
-  console.error('   Run: npm run generate:page-objects');
+  logger.error('❌ No page objects could be loaded. Run page object generation first.');
+  logger.error('   Expected file: src/page-objects/generatedPage.ts');
+  logger.error('   Run: npm run generate:page-objects');
 }
 
 dotenv.config();
@@ -994,7 +994,7 @@ export async function buildStepDefinitions(
   url?: string,
   domContent?: string
 ): Promise<void> {
-  console.log('🚀 Starting step definition generation...');
+  logger.info('🚀 Starting step definition generation...');
 
   await generatePageObjectFile();
 
@@ -1011,7 +1011,7 @@ export async function buildStepDefinitions(
   const stepDefinitions: StepDefinition[] = [];
 
   // Analyze application context for better step generation
-  console.log('🔍 Analyzing application context...');
+  logger.info('🔍 Analyzing application context...');
   const pageElements = getPageElements();
   let applicationContext = '';
   const discoveredScenarios: string[] = [];
@@ -1019,50 +1019,49 @@ export async function buildStepDefinitions(
   if (url) {
     try {
       applicationContext = await analyzeApplicationContext(url, domContent);
-      console.log(`✅ Analyzed ${pageElements.length} page elements`);
+      logger.info(`✅ Analyzed ${pageElements.length} page elements`);
 
       // Warm up model before first real call (first call after idle takes ~100s overhead)
       const warmupHealthy = await ollamaClient.checkHealth();
       if (warmupHealthy) {
-        console.log('🔥 Warming up Ollama model...');
+        logger.info('🔥 Warming up Ollama model...');
         try {
           await ollamaClient.generateText('Respond with "ready"', { temperature: 0, max_tokens: 5 });
-          console.log('✅ Model warmed up');
+          logger.info('✅ Model warmed up');
         } catch {
-          console.log('⚠️ Warm-up failed, continuing anyway');
+          logger.info('⚠️ Warm-up failed, continuing anyway');
         }
       }
 
       // Discover additional scenarios using Ollama
       if (domContent) {
-        console.log('🧠 Discovering additional test scenarios with AI...');
+        logger.info('🧠 Discovering additional test scenarios with AI...');
         const scenarios = await discoverScenariosWithOllama(url, domContent, ollamaClient);
         if (scenarios.length > 0) {
           discoveredScenarios.push(...scenarios);
-          console.log(`💡 AI suggested ${scenarios.length} additional scenarios:`);
+          logger.info(`💡 AI suggested ${scenarios.length} additional scenarios:`);
           scenarios.forEach((scenario, index) => {
-            console.log(`   ${index + 1}. ${scenario}`);
+            logger.info(`   ${index + 1}. ${scenario}`);
           });
         }
       }
     } catch (error) {
-      console.warn(
-        '⚠️ Could not analyze application context:',
-        error instanceof Error ? error.message : error
+      logger.warn(
+        `⚠️ Could not analyze application context: ${error instanceof Error ? error.message : error}`
       );
     }
   }
 
-  console.log(`📋 Generating implementations for ${steps.length} steps...`);
+  logger.info(`📋 Generating implementations for ${steps.length} steps...`);
 
   // Quick health check for user visibility (model already warmed up above)
   const ollamaHealthy = await ollamaClient.checkHealth();
   if (ollamaHealthy) {
-    console.log('✅ Ollama AI-powered step generation active');
+    logger.info('✅ Ollama AI-powered step generation active');
   }
 
   for (const step of steps) {
-    console.log(`⚙️ Processing step: "${step}"`);
+    logger.info(`⚙️ Processing step: "${step}"`);
     const stepType = determineStepType(step);
     const pattern = generateStepPattern(step);
     const parameters = extractParameters(step);
@@ -1096,15 +1095,15 @@ export async function buildStepDefinitions(
   writeFileSync(GENERATED_STEPS_FILE, stepDefinitionsCode, 'utf-8');
 
   const duplicateCount = stepDefinitions.length - uniquePatterns;
-  console.log(
+  logger.info(
     `✅ Successfully generated ${uniquePatterns} unique step definitions${duplicateCount > 0 ? ` (${duplicateCount} duplicates removed)` : ''}`
   );
 
   const validation = stepQualityValidator.validateAllSteps(stepDefinitionsCode);
-  console.log(`📝 Step Quality Score: ${validation.score}/100`);
+  logger.info(`📝 Step Quality Score: ${validation.score}/100`);
   if (validation.warnings.length > 0) {
-    console.log('⚠️ Warnings:');
-    validation.warnings.slice(0, 3).forEach((w) => console.log(`   - ${w}`));
+    logger.info('⚠️ Warnings:');
+    validation.warnings.slice(0, 3).forEach((w) => logger.info(`   - ${w}`));
   }
 }
 
@@ -1167,15 +1166,15 @@ export async function generateStepDefsFromMatrixScenarios(
   const stepDefinitionsCode = generateStepDefinitionsFile(stepDefinitions)
   writeFileSync(GENERATED_STEPS_FILE, stepDefinitionsCode, 'utf-8')
 
-  console.log(
+  logger.info(
     `✅ Generated ${uniquePatterns} unique step definitions from ${scenarios.length} scenarios`
   )
 
   const validation = stepQualityValidator.validateAllSteps(stepDefinitionsCode)
-  console.log(`📝 Step Quality Score: ${validation.score}/100`)
+  logger.info(`📝 Step Quality Score: ${validation.score}/100`)
   if (validation.warnings.length > 0) {
-    console.log('⚠️ Warnings:')
-    validation.warnings.slice(0, 3).forEach((w) => console.log(`   - ${w}`))
+    logger.info('⚠️ Warnings:')
+    validation.warnings.slice(0, 3).forEach((w) => logger.info(`   - ${w}`))
   }
 }
 
