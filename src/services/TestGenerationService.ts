@@ -4,11 +4,12 @@ import { buildStepDefinitions } from '../utils/test-gen/stepDefinitionBuilder';
 import { existsSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fetchDOM } from '../utils/dom/domParser';
-import { createOllamaClient, OllamaClient } from '../utils/ai/ollamaClient';
+import { createOllamaClient } from '../utils/ai/ollamaClient';
 import { parseInstructionFile } from '../utils/file-parser';
 import { TestGenerationConfig } from '../types';
 import { InputValidator } from '../utils/validation';
 import type { LLMProvider } from '../utils/ai/types';
+import { determineStepType } from '../utils/test-gen/stepClassifier';
 import { logger } from '../utils/logger';
 
 export interface TestGenerationServiceOptions {
@@ -158,24 +159,6 @@ export class TestGenerationService {
 
     return { featureFilePath, pageObjectPath, stepDefinitionsPath };
   }
-}
-
-function determineStepType(step: string): 'Given' | 'When' | 'Then' | 'And' {
-  const lowerStep = step.toLowerCase();
-
-  if (lowerStep.includes('navigate') || lowerStep.includes('open') || lowerStep.includes('visit') || lowerStep.includes('on the page') || lowerStep.includes('on the login')) {
-    return 'Given';
-  }
-
-  if (lowerStep.includes('should') || lowerStep.includes('verify') || lowerStep.includes('expect') || lowerStep.includes('see') || lowerStep.includes('remain') || lowerStep.includes('error message')) {
-    return 'Then';
-  }
-
-  if (lowerStep.includes('remain') || lowerStep.includes('form')) {
-    return 'And';
-  }
-
-  return 'When';
 }
 
 function generateFeatureFromInstructions(instructions: import('../utils/test-gen/instructionParser').Instructions): string {

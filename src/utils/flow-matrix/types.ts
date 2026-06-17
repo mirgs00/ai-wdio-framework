@@ -70,13 +70,47 @@ export interface FlowMatrixConfig {
   timeoutPerState: number
   totalTimeoutMs: number
   maxRadioDepth?: number
+  smokeOnly?: boolean
 }
 
 export const DEFAULT_FLOW_CONFIG: FlowMatrixConfig = {
-  maxDepth: 3,
-  maxStates: 20,
-  maxInteractionsPerState: 5,
+  maxDepth: 5,
+  maxStates: 50,
+  maxInteractionsPerState: 15,
   timeoutPerState: 15000,
-  totalTimeoutMs: 120000,
-  maxRadioDepth: 3,
+  totalTimeoutMs: 300000,
+  maxRadioDepth: 5,
+}
+
+// --- Combinatorial Interaction Discovery Types ---
+
+export interface ElementInteraction {
+  selector: string
+  type: 'radio' | 'checkbox' | 'select' | 'button' | 'link' | 'setValue'
+  name?: string
+  value?: string
+  label: string
+  reveals: string[]
+  hides: string[]
+  navigatesTo?: string
+  subInteractions?: ElementInteraction[]
+}
+
+export interface RadioGroup {
+  name: string
+  options: RadioOption[]
+}
+
+export interface RadioOption {
+  selector: string
+  value: string
+  label: string
+  reveals: string[]
+}
+
+export interface InteractionTree {
+  rootUrl: string
+  initialElements: InteractiveElement[]
+  interactions: ElementInteraction[]
+  radioGroups: RadioGroup[]
 }

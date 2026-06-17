@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logger } from '../logger';
 
 /**
  * Fetches the full HTML DOM of a given URL.
@@ -6,8 +7,8 @@ import axios from 'axios';
  * @returns The raw HTML string
  */
 export async function fetchDOM(url: string): Promise<string> {
-  console.log(`🌐 Fetching DOM from: ${url}`);
+  logger.info(`Fetching DOM from: ${url}`);
   const response = await axios.get(url);
-  console.log('✅ DOM fetched successfully');
+  logger.info('DOM fetched successfully');
   return response.data;
 }

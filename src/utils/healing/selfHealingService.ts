@@ -2,11 +2,23 @@ import { browser } from '@wdio/globals';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createOllamaClient } from '../ai/ollamaClient';
-import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wdio/mcp/snapshot';
 import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
 import { HEALING_CONFIG } from '../constants';
 import { logger } from '../logger';
 import { healingArchivist } from './healingArchivist';
+
+// Dynamic import for ESM-only @wdio/mcp/snapshot
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mcpSnapshot: any = null;
+async function loadMCPSnapshot(): Promise<boolean> {
+  if (mcpSnapshot) return true;
+  try {
+    mcpSnapshot = await import('@wdio/mcp/snapshot');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface HealingContext {
   stepText: string;
@@ -48,8 +60,13 @@ class SelfHealingService {
 
     try {
       // Step 1: Get current page elements via MCP snapshot (in-browser detection)
-      const elements = await getInteractableBrowserElements(browser);
-      const accessibilityTree = await getBrowserAccessibilityTree(browser);
+      const loaded = await loadMCPSnapshot();
+      if (!loaded || !mcpSnapshot) {
+        logger.warn('MCP snapshot not available for healing', { section: 'SELF_HEALING' });
+        return { healed: false, reason: 'MCP snapshot not available', retryable: false };
+      }
+      const elements = await mcpSnapshot.getInteractableBrowserElements(browser);
+      const accessibilityTree = await mcpSnapshot.getBrowserAccessibilityTree(browser);
 
       logger.info(`Found ${elements.length} interactable elements on current page`, {
         section: 'SELF_HEALING',

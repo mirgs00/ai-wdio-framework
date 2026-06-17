@@ -342,7 +342,7 @@ export class HealingService {
           if (sel === selector) { getterName = name; break }
         }
       } catch {
-        // If we can't map, use the selector as-is (will likely fail to match)
+        logger.debug(`Could not read page object for getter mapping: ${filePath}`);
       }
 
       // Update page object

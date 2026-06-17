@@ -206,22 +206,58 @@ function generateFallbackData(
 ): Record<string, string> {
   const data: Record<string, string> = {}
   const ts = Date.now()
+  const now = new Date()
+  const dd = String(now.getDate()).padStart(2, '0')
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(now.getFullYear())
   for (const el of elements) {
     const type = el.type ?? 'text'
     const name = (el.name ?? '').toLowerCase()
     const selector = (el.selector ?? '').toLowerCase()
     const placeholder = (el.placeholder ?? '').toLowerCase()
-    if (type === 'email' || name.includes('email') || placeholder.includes('email')) {
+    const id = (el.attributes['id'] ?? selector.replace('#', '')).toLowerCase()
+    const ariaLabel = (el.attributes['aria-label'] ?? '').toLowerCase()
+    const max = el.attributes['max']
+    const maxlength = el.attributes['maxlength']
+
+    const allText = `${name} ${placeholder} ${selector} ${id} ${ariaLabel}`
+
+    if (type === 'email' || allText.includes('email')) {
       data[el.selector] = `test_${ts}@test.com`
     } else if (type === 'password') {
       data[el.selector] = 'TestPass123!'
-    } else if (type === 'tel' || name.includes('phone') || placeholder.includes('phone')) {
+    } else if (type === 'date' || allText.includes('date')) {
+      if (placeholder.includes('dd/mm/yyyy')) {
+        data[el.selector] = `${dd}/${mm}/${yyyy}`
+      } else if (placeholder.includes('mm/dd/yyyy')) {
+        data[el.selector] = `${mm}/${dd}/${yyyy}`
+      } else {
+        data[el.selector] = `${dd}/${mm}/${yyyy}`
+      }
+    } else if (type === 'tel' || allText.includes('phone')) {
       data[el.selector] = '1234567890'
-    } else if (type === 'number' || name.includes('value') || name.includes('amount') || name.includes('price') || name.includes('taxable') || selector.includes('value') || selector.includes('amount')) {
-      data[el.selector] = '500000'
+    } else if (type === 'number' || allText.includes('value') || allText.includes('amount') ||
+        allText.includes('price') || allText.includes('taxable') || allText.includes('interest') ||
+        allText.includes('rate') || allText.includes('percent') || allText.includes('qty') ||
+        allText.includes('quantity') || allText.includes('age') || allText.includes('score') ||
+        allText.includes('count') || allText.includes('total') || allText.includes('sum') ||
+        allText.includes('balance')) {
+      if (max && !isNaN(Number(max))) {
+        const maxVal = Number(max)
+        if (maxVal <= 100) data[el.selector] = String(Math.min(5, maxVal))
+        else if (maxVal <= 1000) data[el.selector] = String(Math.min(500, maxVal))
+        else data[el.selector] = String(Math.min(500000, maxVal))
+      } else if (maxlength && !isNaN(Number(maxlength))) {
+        const len = Number(maxlength)
+        if (len <= 2) data[el.selector] = '5'
+        else if (len <= 5) data[el.selector] = '50000'
+        else data[el.selector] = '500000'
+      } else {
+        data[el.selector] = '500000'
+      }
     } else if (el.isSelect || type === 'select-one') {
       data[el.selector] = '' // let fillForm pick the first option
-    } else if (name.includes('name') || placeholder.includes('name')) {
+    } else if (allText.includes('name')) {
       data[el.selector] = 'Test User'
     } else {
       data[el.selector] = 'test'

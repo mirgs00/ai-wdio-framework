@@ -19,7 +19,6 @@ export class LocatorHelper {
   static async find(description: ElementDescription | string, options: SmartElementOptions = {}) {
     const {
       waitTime = 10000,
-      retries = 3,
       description: contextDesc = 'main',
       useSmartLocator = true,
     } = options;

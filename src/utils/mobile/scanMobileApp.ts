@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { $$ } from '@wdio/globals';
 import { remote } from 'webdriverio';
+import { logger } from '../logger';
 
 /**
  * Scans all visible UI elements from the mobile app and saves their metadata.
@@ -51,14 +52,14 @@ export async function scanMobileApp(platform: 'android' | 'ios') {
   const filePath = path.join(tmpDir, `${platform}-elements.json`);
   fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
 
-  console.log(`✅ Scanned ${metadata.length} elements from ${platform} app.`);
-  console.log(`📄 Saved to: ${filePath}`);
+  logger.info(`Scanned ${metadata.length} elements from ${platform} app.`);
+  logger.info(`Saved to: ${filePath}`);
 }
 
 async function main() {
   const platform = (process.argv[2] || 'android') as 'android' | 'ios';
   if (!['android', 'ios'].includes(platform)) {
-    console.error('Usage: npx ts-node src/utils/mobile/scanMobileApp.ts <android|ios>');
+    logger.error('Usage: npx ts-node src/utils/mobile/scanMobileApp.ts <android|ios>');
     process.exit(1);
   }
 
@@ -85,5 +86,5 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch(console.error);
+  main().catch((error) => logger.error('Mobile scan failed', error));
 }

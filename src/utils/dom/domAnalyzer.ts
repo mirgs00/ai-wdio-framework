@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { load, type CheerioAPI, type Cheerio } from 'cheerio';
 import { type AnyNode } from 'domhandler';
-import { REGEX_PATTERNS, regexHelpers } from '../constants/regexPatterns';
+import { REGEX_PATTERNS } from '../constants/regexPatterns';
 
 export interface FormField {
   name: string;

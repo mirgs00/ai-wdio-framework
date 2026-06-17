@@ -24,32 +24,55 @@ export function extractScenarios(
   }
 
   // Generate additional variant scenarios for radio/checkbox/select selections
-  const startState = matrix.states.get(matrix.startStateId)
-  if (startState) {
-    const radioVariants = generateRadioVariants(
-      matrix, startState, matrix.rootUrl, 0, maxRadioDepth
+  // Run on ALL states that have radio/checkbox/select elements, not just startState
+  for (const [, state] of matrix.states) {
+    const hasRadios = state.elements.some(
+      (el) => el.isInput && (el.type === 'radio' || el.type === 'checkbox')
     )
-    for (const variant of radioVariants) {
-      if (!scenarios.some((s) => s.name === variant.name)) {
-        scenarios.push(variant)
+    if (hasRadios) {
+      const radioVariants = generateRadioVariants(
+        matrix, state, matrix.rootUrl, 0, maxRadioDepth
+      )
+      for (const variant of radioVariants) {
+        if (!scenarios.some((s) => s.name === variant.name)) {
+          scenarios.push(variant)
+        }
       }
     }
-    const selectVariants = generateSelectVariants(matrix, startState)
-    for (const variant of selectVariants) {
-      if (!scenarios.some((s) => s.name === variant.name)) {
-        scenarios.push(variant)
+
+    const hasSelects = state.elements.some((el) => el.isSelect)
+    if (hasSelects) {
+      const selectVariants = generateSelectVariants(matrix, state)
+      for (const variant of selectVariants) {
+        if (!scenarios.some((s) => s.name === variant.name)) {
+          scenarios.push(variant)
+        }
       }
     }
   }
 
   // Deduplicate all scenarios by step content
   const seen = new Set<string>()
-  return scenarios.filter((s) => {
+  const deduplicated = scenarios.filter((s) => {
     const fp = s.steps.join('|')
     if (seen.has(fp)) return false
     seen.add(fp)
     return true
   })
+
+  // Add smoke, negative, and parameterized scenarios
+  const smokeTests = generateSmokeTests(matrix, matrix.rootUrl)
+  const negativeTests = generateNegativeScenarios(matrix, matrix.rootUrl)
+  const parameterizedTests = generateParameterizedScenarios(matrix, matrix.rootUrl)
+
+  const allScenarios = [...smokeTests, ...deduplicated, ...negativeTests, ...parameterizedTests]
+
+  // If smokeOnly, filter to only @smoke tagged scenarios
+  if (config?.smokeOnly) {
+    return allScenarios.filter((s) => s.tags.some((t) => t === '@smoke'))
+  }
+
+  return allScenarios
 }
 
 /**
@@ -242,20 +265,58 @@ function findRadioTransition(
 
 /** Returns true for text-like inputs that can be filled with setValue. */
 function isFillableInput(el: InteractiveElement): boolean {
-  const fillable = ['text', 'search', 'email', 'url', 'tel', 'number', 'password']
+  const fillable = ['text', 'search', 'email', 'url', 'tel', 'number', 'password', 'date']
   return el.isInput && fillable.includes(el.type ?? '')
 }
 
-/** Guess a sensible test value for a form input based on its type/name. */
+/** Guess a sensible test value for a form input based on its type/name/placeholder/id/attributes. */
 function guessInputValue(el: InteractiveElement): string {
   const type = el.type ?? 'text'
   const name = (el.name ?? '').toLowerCase()
   const placeholder = (el.placeholder ?? '').toLowerCase()
-  if (type === 'email' || name.includes('email') || placeholder.includes('email')) return 'test@test.com'
+  const selector = (el.selector ?? '').toLowerCase()
+  const id = (el.attributes['id'] ?? selector.replace('#', '')).toLowerCase()
+  const ariaLabel = (el.attributes['aria-label'] ?? '').toLowerCase()
+  const max = el.attributes['max']
+  const maxlength = el.attributes['maxlength']
+  const now = new Date()
+  const dd = String(now.getDate()).padStart(2, '0')
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(now.getFullYear())
+
+  const allText = `${name} ${placeholder} ${selector} ${id} ${ariaLabel}`
+
+  if (type === 'email' || allText.includes('email')) return 'test@test.com'
   if (type === 'password') return 'TestPass123!'
-  if (type === 'tel' || name.includes('phone') || placeholder.includes('phone')) return '1234567890'
-  if (type === 'number' || name.includes('value') || name.includes('amount') || name.includes('price')) return '500000'
-  if (name.includes('name') || placeholder.includes('name')) return 'Test User'
+  if (type === 'date' || allText.includes('date')) {
+    if (placeholder.includes('dd/mm/yyyy')) return `${dd}/${mm}/${yyyy}`
+    if (placeholder.includes('mm/dd/yyyy')) return `${mm}/${dd}/${yyyy}`
+    return `${dd}/${mm}/${yyyy}`
+  }
+  if (type === 'tel' || allText.includes('phone')) return '1234567890'
+
+  if (type === 'number' || allText.includes('value') || allText.includes('amount') ||
+      allText.includes('price') || allText.includes('taxable') || allText.includes('interest') ||
+      allText.includes('rate') || allText.includes('percent') || allText.includes('qty') ||
+      allText.includes('quantity') || allText.includes('age') || allText.includes('score') ||
+      allText.includes('count') || allText.includes('total') || allText.includes('sum') ||
+      allText.includes('balance')) {
+    if (max && !isNaN(Number(max))) {
+      const maxVal = Number(max)
+      if (maxVal <= 100) return String(Math.min(5, maxVal))
+      if (maxVal <= 1000) return String(Math.min(500, maxVal))
+      return String(Math.min(500000, maxVal))
+    }
+    if (maxlength && !isNaN(Number(maxlength))) {
+      const len = Number(maxlength)
+      if (len <= 2) return '5'
+      if (len <= 5) return '50000'
+      return '500000'
+    }
+    return '500000'
+  }
+
+  if (allText.includes('name')) return 'Test User'
   return 'test'
 }
 
@@ -476,4 +537,135 @@ function transitionToStep(
   }
 
   return steps
+}
+
+function generateSmokeTests(
+  matrix: FlowMatrix,
+  rootUrl: string
+): ExtractedScenario[] {
+  const scenarios: ExtractedScenario[] = []
+
+  scenarios.push({
+    tags: ['@smoke', '@quick'],
+    name: 'Homepage loads successfully',
+    steps: [
+      `Given the user navigates to "${rootUrl}"`,
+      'Then the page should load successfully',
+      'And the page title should be present',
+    ],
+  })
+
+  const pageTypes = new Set<string>()
+  for (const [, state] of matrix.states) {
+    if (!pageTypes.has(state.pageType)) {
+      pageTypes.add(state.pageType)
+      scenarios.push({
+        tags: ['@smoke', `@page-type:${state.pageType}`],
+        name: `${state.pageType} page loads`,
+        steps: [
+          `Given the user navigates to "${rootUrl}"`,
+          `Then the ${state.pageType} page should be visible`,
+        ],
+      })
+    }
+  }
+
+  return scenarios
+}
+
+function generateNegativeScenarios(
+  matrix: FlowMatrix,
+  rootUrl: string
+): ExtractedScenario[] {
+  const scenarios: ExtractedScenario[] = []
+
+  for (const [, state] of matrix.states) {
+    const formElements = state.elements.filter(
+      (el) => el.isInput && el.type !== 'hidden' && el.type !== 'submit' && el.type !== 'radio' && el.type !== 'checkbox'
+    )
+    if (formElements.length === 0) continue
+
+    const submitTransitions = matrix.transitions.filter(
+      (t) => t.from === state.id && t.interaction.type === 'submit'
+    )
+    if (submitTransitions.length === 0) continue
+
+    scenarios.push({
+      tags: ['@negative', `@page-type:${state.pageType}`, '@validation'],
+      name: `Reject empty form submission on ${state.pageType}`,
+      steps: [
+        `Given the user navigates to "${rootUrl}"`,
+        'When the user submits the form',
+        `Then the URL should contain "${new URL(rootUrl).pathname}"`,
+      ],
+    })
+
+    const emailFields = formElements.filter(
+      (el) => el.type === 'email' || (el.name ?? '').toLowerCase().includes('email')
+    )
+    for (const field of emailFields) {
+      scenarios.push({
+        tags: ['@negative', `@page-type:${state.pageType}`, '@validation'],
+        name: `Reject invalid email on ${state.pageType}`,
+        steps: [
+          `Given the user navigates to "${rootUrl}"`,
+          `When the user fills "${sanitize(field.selector)}" with "notanemail"`,
+          'When the user submits the form',
+          `Then the URL should contain "${new URL(rootUrl).pathname}"`,
+        ],
+      })
+    }
+
+    const passwordFields = formElements.filter(
+      (el) => el.type === 'password' || (el.name ?? '').toLowerCase().includes('password')
+    )
+    for (const field of passwordFields) {
+      scenarios.push({
+        tags: ['@negative', `@page-type:${state.pageType}`, '@validation'],
+        name: `Reject short password on ${state.pageType}`,
+        steps: [
+          `Given the user navigates to "${rootUrl}"`,
+          `When the user fills "${sanitize(field.selector)}" with "123"`,
+          'When the user submits the form',
+          `Then the URL should contain "${new URL(rootUrl).pathname}"`,
+        ],
+      })
+    }
+  }
+
+  return scenarios
+}
+
+function generateParameterizedScenarios(
+  matrix: FlowMatrix,
+  rootUrl: string
+): ExtractedScenario[] {
+  const scenarios: ExtractedScenario[] = []
+
+  for (const [, state] of matrix.states) {
+    if (state.pageType !== 'login') continue
+
+    const usernameField = state.elements.find(
+      (el) => el.isInput && ((el.name ?? '').toLowerCase().includes('user') || (el.name ?? '').toLowerCase().includes('email') || el.type === 'email')
+    )
+    const passwordField = state.elements.find(
+      (el) => el.isInput && ((el.name ?? '').toLowerCase().includes('pass') || el.type === 'password')
+    )
+
+    if (!usernameField || !passwordField) continue
+
+    scenarios.push({
+      tags: ['@parameterized', '@data-driven', '@login'],
+      name: `Login with various credentials on ${state.pageType}`,
+      steps: [
+        `Given the user navigates to "${rootUrl}"`,
+        `When the user fills "<username_selector>" with "<username>"`,
+        `When the user fills "<password_selector>" with "<password>"`,
+        'When the user submits the form',
+        '<expected_result>',
+      ],
+    })
+  }
+
+  return scenarios
 }

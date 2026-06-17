@@ -1,5 +1,6 @@
 // src/utils/dom/domParser.ts
 import axios from 'axios';
+import { logger } from '../logger';
 
 /**
  * Validates if a string is a valid URL with allowed protocols
@@ -20,13 +21,13 @@ export async function getDOMSnapshot(url: string): Promise<string> {
   }
 
   try {
-    console.log(`🌐 Fetching DOM from: ${url}`);
+    logger.info(`Fetching DOM from: ${url}`);
     const response = await axios.get(url, {
       timeout: 30000,
       maxRedirects: 5,
       validateStatus: (status) => status >= 200 && status < 400,
     });
-    console.log('✅ DOM fetched successfully');
+    logger.info('DOM fetched successfully');
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -40,7 +41,7 @@ export async function getDOMSnapshot(url: string): Promise<string> {
         throw new Error(`No response received from ${url}. Check your network connection.`);
       }
     }
-    console.error(`❌ Failed to fetch DOM from ${url}:`, error);
+    logger.error(`Failed to fetch DOM from ${url}: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }

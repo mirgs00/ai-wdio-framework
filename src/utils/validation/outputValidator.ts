@@ -56,7 +56,7 @@ export function validateTypeScriptCode(code: string): ValidationResult {
     warnings.push('Code contains TODO/FIXME comments');
   }
 
-  if (code.match(/await\s+(?!.*[;(,\]\}])/)) {
+  if (code.match(/await\s+(?!.*[;(,\])}])/)) {
     warnings.push('Found orphaned await statements');
   }
 
@@ -105,7 +105,7 @@ export function validateSelector(selector: string): ValidationResult {
     errors.push('Selector contains undefined/null reference');
   }
 
-  if (!selector.match(/^([.#\[]|\/\/|[a-zA-Z]|[=|]|\$|button|input|div|span)/)) {
+  if (!selector.match(/^([.#[]|\/\/|[a-zA-Z]|[=|]|\$|button|input|div|span)/)) {
     warnings.push('Selector has unexpected starting character');
   }
 
@@ -173,7 +173,6 @@ export function validateFeatureFile(content: string): ValidationResult {
   const lines = content.split('\n');
   let hasFeature = false;
   let hasScenario = false;
-  let currentScenario = '';
   let stepCount = 0;
 
   for (let i = 0; i < lines.length; i++) {
@@ -192,7 +191,6 @@ export function validateFeatureFile(content: string): ValidationResult {
       }
       hasScenario = true;
       stepCount = 0;
-      currentScenario = line;
     } else if (
       line.startsWith('Given ') ||
       line.startsWith('When ') ||

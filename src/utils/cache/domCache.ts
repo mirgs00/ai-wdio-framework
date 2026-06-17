@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CACHE_CONFIG } from '../constants';
+import { logger } from '../logger';
 
 const CACHE_DIR = path.join(process.cwd(), CACHE_CONFIG.DIR);
 const CACHE_VALIDITY_MS = CACHE_CONFIG.VALIDITY_MS;
@@ -66,7 +67,7 @@ export class DOMCache {
       fs.writeFileSync(tmpPath, JSON.stringify(cacheEntry), 'utf-8');
       fs.renameSync(tmpPath, cachePath);
     } catch (error) {
-      console.warn('Failed to cache DOM:', error instanceof Error ? error.message : error);
+      logger.warn(`Failed to cache DOM: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -76,7 +77,7 @@ export class DOMCache {
         fs.rmSync(CACHE_DIR, { recursive: true });
       }
     } catch (error) {
-      console.warn('Failed to clear cache:', error instanceof Error ? error.message : error);
+      logger.warn(`Failed to clear cache: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -99,9 +100,8 @@ export class DOMCache {
         }
       }
     } catch (error) {
-      console.warn(
-        'Failed to clear expired cache:',
-        error instanceof Error ? error.message : error
+      logger.warn(
+        `Failed to clear expired cache: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -131,7 +131,7 @@ export class DOMCache {
         }
       }
     } catch (error) {
-      console.warn('Failed to enforce cache max entries:', error instanceof Error ? error.message : error);
+      logger.warn(`Failed to enforce cache max entries: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

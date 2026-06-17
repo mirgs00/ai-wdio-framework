@@ -1,5 +1,6 @@
 import { browser } from '@wdio/globals';
 import { selfHealingService, HealingContext } from './selfHealingService';
+import { logger } from '../logger';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let pageContextManager: { getCurrentPage(): unknown; getAllPages(): Record<string, unknown> } | null = null;
@@ -37,11 +38,11 @@ export async function executeStepWithHealing<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const _attemptCount = attempt;
-      console.log(`▶️  Executing step (attempt ${attempt + 1}/${maxRetries + 1}): "${stepText}"`);
+      logger.info(`Executing step (attempt ${attempt + 1}/${maxRetries + 1}): "${stepText}"`);
       return await stepFn();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`❌ Step failed: ${lastError.message}`);
+      logger.error(`Step failed: ${lastError.message}`);
 
       // Don't try healing on last attempt
       if (attempt === maxRetries || !enableHealing) {
@@ -60,18 +61,18 @@ export async function executeStepWithHealing<T>(
       const healingResult = await selfHealingService.healStep(healingContext);
 
       if (!healingResult.healed || !healingResult.retryable) {
-        console.log(`⚠️ Healing failed: ${healingResult.reason}`);
+        logger.warn(`Healing failed: ${healingResult.reason}`);
         break;
       }
 
-      console.log(`✅ Step healed: ${healingResult.reason}`);
+      logger.info(`Step healed: ${healingResult.reason}`);
 
       if (healingResult.newSelector) {
-        console.log(`   New selector: ${healingResult.newSelector}`);
+        logger.info(`  New selector: ${healingResult.newSelector}`);
       }
 
       if (healingResult.newImplementation) {
-        console.log(`   Implementation regenerated`);
+        logger.info(`  Implementation regenerated`);
       }
 
       // Wait before retry

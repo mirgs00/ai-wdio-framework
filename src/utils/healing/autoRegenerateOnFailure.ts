@@ -1,10 +1,22 @@
 import { browser } from '@wdio/globals';
 import { writeFileSync } from 'fs';
 import * as path from 'path';
-import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wdio/mcp/snapshot';
 import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
 import { HEALING_CONFIG } from '../constants';
 import { logger } from '../logger';
+
+// Dynamic import for ESM-only @wdio/mcp/snapshot
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mcpSnapshot: any = null;
+async function loadMCPSnapshot(): Promise<boolean> {
+  if (mcpSnapshot) return true;
+  try {
+    mcpSnapshot = await import('@wdio/mcp/snapshot');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface RegenerationContext {
   stepText: string;
@@ -33,8 +45,13 @@ class AutoRegenerateService {
 
     try {
       // Get current page elements via MCP snapshot (in-browser detection)
-      const elements = await getInteractableBrowserElements(browser);
-      const accessibilityTree = await getBrowserAccessibilityTree(browser);
+      const loaded = await loadMCPSnapshot();
+      if (!loaded || !mcpSnapshot) {
+        logger.warn('MCP snapshot not available for regeneration', { section: 'AUTO_REGENERATE' });
+        return false;
+      }
+      const elements = await mcpSnapshot.getInteractableBrowserElements(browser);
+      const accessibilityTree = await mcpSnapshot.getBrowserAccessibilityTree(browser);
 
       if (elements.length === 0) {
         logger.warn('No interactable elements found on page', { section: 'AUTO_REGENERATE' });
@@ -120,11 +137,11 @@ class AutoRegenerateService {
       const pageObjectCode = this.generatePageObjectCode(finalPageName, elements, accessibilityTree, pageUrl);
 
       writeFileSync(pageObjectPath, pageObjectCode, 'utf-8');
-      console.log(`\n📝 Updated: ${pageObjectPath}`);
+      logger.info(`Updated: ${pageObjectPath}`);
 
       return true;
     } catch (error) {
-      console.warn(
+      logger.warn(
         `Could not update page object: ${error instanceof Error ? error.message : error}`
       );
       return false;

@@ -13,7 +13,14 @@ export function computeFingerprint(
     .map((el) => `${el.tag}:${el.type ?? ''}:${el.name ?? ''}:${el.selector}`)
     .join('|')
 
-  const raw = `${pageType}::${pathKey}::${sorted}`
+  // Include checked/selected state of radios and checkboxes
+  const checkedState = elements
+    .filter((el) => el.isInput && (el.type === 'radio' || el.type === 'checkbox'))
+    .map((el) => `${el.selector}:${el.attributes['checked'] || 'false'}`)
+    .sort()
+    .join('|')
+
+  const raw = `${pageType}::${pathKey}::${sorted}::checked:${checkedState}`
   return simpleHash(raw)
 }
 

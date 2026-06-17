@@ -57,7 +57,7 @@ export class OllamaClient implements LLMProvider {
     if (dom.length <= maxLength) {
       return dom;
     }
-    console.warn(
+    logger.warn(
       `DOM content truncated from ${dom.length} to ${maxLength} characters to prevent API overload`
     );
     return dom.slice(0, maxLength) + '\n<!-- ...truncated... -->';
@@ -105,10 +105,10 @@ export class OllamaClient implements LLMProvider {
         }
 
         const delayMs = retryDelayMs * Math.pow(2, attempt);
-        console.warn(
-          `⚠️ Ollama API error (attempt ${attempt + 1}/${maxRetries + 1}): ${error instanceof Error ? error.message : error}`
+        logger.warn(
+          `Ollama API error (attempt ${attempt + 1}/${maxRetries + 1}): ${error instanceof Error ? error.message : error}`
         );
-        console.log(`⏳ Retrying in ${delayMs}ms...`);
+        logger.info(`Retrying in ${delayMs}ms...`);
         await this.sleep(delayMs);
       }
     }
@@ -120,8 +120,8 @@ export class OllamaClient implements LLMProvider {
     const url = `${this.ollamaClientBaseUrl}/api/generate`;
     const mergedOptions = { ...this.defaultOptions, ...options };
 
-    console.log(`🔄 Making Ollama API call to: ${url}`);
-    console.log(`📝 Prompt length: ${prompt.length} characters`);
+    logger.info(`Making Ollama API call to: ${url}`);
+    logger.info(`Prompt length: ${prompt.length} characters`);
 
     const bodyPayload = {
       model: this.model,
@@ -154,24 +154,24 @@ export class OllamaClient implements LLMProvider {
       clearTimeout(timeoutId);
       const duration = Date.now() - startTime;
       
-      console.log(`✅ Ollama response received in ${duration}ms`);
+      logger.info(`Ollama response received in ${duration}ms`);
       logger.recordMetric('ollama_api_call', duration);
 
       if (!response.ok) {
         const errorBody = await response.text();
         const errorMsg = `Ollama API error: ${response.status} ${response.statusText}`;
-        console.error(`❌ ${errorMsg}`, errorBody);
+        logger.error(errorMsg, new Error(errorBody));
         logger.error(errorMsg, new Error(errorBody));
         throw new Error(errorMsg);
       }
 
       const data = (await response.json()) as OllamaResponse;
-      console.log(`📤 Generated response length: ${data.response.length} characters`);
+      logger.info(`Generated response length: ${data.response.length} characters`);
       logger.logOllamaResponse(data.response, this.model, duration);
       return data.response;
     } catch (error: unknown) {
       clearTimeout(timeoutId);
-      console.error(`❌ Ollama API call failed:`, error);
+      logger.error('Ollama API call failed', error instanceof Error ? error : new Error(String(error)));
 
       if (error instanceof AbortError) {
         throw new Error(`Ollama API timeout after ${this.timeout}ms`);

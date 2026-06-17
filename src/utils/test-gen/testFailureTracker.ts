@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import * as path from 'path';
+import { logger } from '../logger';
 
 export interface FailedTest {
   scenario: string;
@@ -83,6 +84,7 @@ export class TestFailureTracker {
         const content = readFileSync(FAILURE_TRACKING_FILE, 'utf-8');
         return JSON.parse(content);
       } catch {
+        logger.debug('Could not parse failure report, starting fresh');
         return this.getEmptyReport();
       }
     }

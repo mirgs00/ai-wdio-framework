@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 export interface PerformanceMetric {
   name: string;
   duration: number;
@@ -26,7 +28,7 @@ export class PerformanceMonitor {
     const startTime = PerformanceMonitor.timers.get(operationName);
 
     if (!startTime) {
-      console.warn(`Timer "${operationName}" was not started`);
+      logger.warn(`Timer "${operationName}" was not started`);
       return {
         name: operationName,
         duration: 0,

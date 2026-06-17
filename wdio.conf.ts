@@ -28,7 +28,10 @@ export const config: WebdriverIO.Config = {
 
   capabilities: [
     {
-      browserName: 'chrome',
+      browserName: 'firefox',
+      // 'moz:firefoxOptions': {
+        // args: ['-headless'],
+      // },
     },
   ],
 

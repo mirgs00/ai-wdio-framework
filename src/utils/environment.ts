@@ -1,16 +1,17 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
+import { logger } from './logger';
 
 export function validateEnvironment(): void {
-  console.log('🔍 Validating environment...');
+  logger.info('Validating environment...');
 
   try {
     execSync('npx wdio --version', { stdio: 'ignore' });
-    console.log('✅ WebdriverIO found (local)');
+    logger.info('WebdriverIO found (local)');
   } catch {
     try {
       execSync('wdio --version', { stdio: 'ignore' });
-      console.log('✅ WebdriverIO found (global)');
+      logger.info('WebdriverIO found (global)');
     } catch {
       throw new Error(
         'WebdriverIO not found. Please install with: npm install --save-dev @wdio/cli'
@@ -20,11 +21,11 @@ export function validateEnvironment(): void {
 
   try {
     execSync('npx ts-node --version', { stdio: 'ignore' });
-    console.log('✅ ts-node found (local)');
+    logger.info('ts-node found (local)');
   } catch {
     try {
       execSync('ts-node --version', { stdio: 'ignore' });
-      console.log('✅ ts-node found (global)');
+      logger.info('ts-node found (global)');
     } catch {
       throw new Error('ts-node not found. Please install with: npm install --save-dev ts-node');
     }
@@ -34,5 +35,5 @@ export function validateEnvironment(): void {
     throw new Error('WebdriverIO config (wdio.conf.ts) not found in project root.');
   }
 
-  console.log('✅ Environment validation passed');
+  logger.info('Environment validation passed');
 }

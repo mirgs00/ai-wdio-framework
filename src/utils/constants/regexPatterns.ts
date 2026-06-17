@@ -62,7 +62,7 @@ export const REGEX_PATTERNS = {
   // Button/Element Extraction
   CLICK_PATTERN: /.*?clicks?\s+(?:the\s+)?/i,
   BUTTON_SUFFIX_PATTERN: /\s+button.*$/i,
-  QUOTED_VALUE: /[\'\"]([^\'\"]+)[\'\"]/,
+  QUOTED_VALUE: /["']([^"']+)["']/,
   FIELD_IN_PATTERN: /in the ([^']+)$/,
 
   // Text Extraction
@@ -168,7 +168,7 @@ export const regexHelpers = {
    * Extract quoted value from string (supports double and single quotes)
    */
   extractQuotedValue: (text: string): string | null => {
-    const doubleMatch = text.match(/"([^\"]+)"/);
+    const doubleMatch = text.match(/"([^"]+)"/);
     if (doubleMatch) return doubleMatch[1];
     const singleMatch = text.match(/'([^']+)'/);
     return singleMatch ? singleMatch[1] : null;

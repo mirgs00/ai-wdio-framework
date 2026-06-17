@@ -200,11 +200,9 @@ export class StepQualityValidator {
     const warnings: string[] = [];
     const suggestions: string[] = [];
     let score = 100;
-    let totalScore = 0;
-    let stepCount = 0;
 
-    const stepMatches = stepsCode.match(/Given\(.*?\)|When\(.*?\)|Then\(.*?\)/g) || [];
-    stepCount = stepMatches.length;
+    // Count step definitions by matching Given/When/Then( at start of function
+    const stepCount = (stepsCode.match(/^\s*(?:Given|When|Then)\(/gm) || []).length;
 
     if (stepCount === 0) {
       issues.push('No step definitions found');
@@ -227,19 +225,46 @@ export class StepQualityValidator {
       suggestions.push('Add comments to explain complex step logic');
     }
 
-    for (const match of stepMatches) {
-      const result = this.validateStepImplementation(match);
-      totalScore += result.score;
-      issues.push(...result.issues);
-      warnings.push(...result.warnings);
-    }
+    // File-level quality analysis (avoids fragile per-step extraction)
+    const totalTryBlocks = (stepsCode.match(/\btry\s*\{/g) || []).length;
+    const totalCatchBlocks = (stepsCode.match(/\}\s*catch\s*(?:\([^)]*\))?\s*\{/g) || []).length;
+    const totalThrow = (stepsCode.match(/throw\s+(new\s+)?Error/g) || []).length;
+    const totalAwait = (stepsCode.match(/\bawait\s+\S/g) || []).length;
+    const totalExplicitWait = (stepsCode.match(/\bexpect\(/g) || []).length
+      + (stepsCode.match(/\bwaitUntil/g) || []).length
+      + (stepsCode.match(/\bwaitForDisplayed/g) || []).length
+      + (stepsCode.match(/\bwaitForClickable/g) || []).length;
 
-    const averageScore = Math.round(totalScore / Math.max(stepCount, 1));
-    const finalScore = Math.round((score + averageScore) / 2);
+    // Each step should ideally have a try-catch pair, an await, an explicit wait, and a throw
+    const expectedPairs = stepCount; // one try-catch per step
+    const catchRatio = Math.min(totalCatchBlocks / expectedPairs, 1);
+    const awaitRatio = Math.min(totalAwait / (stepCount * 1.5), 1);
+    const waitRatio = Math.min(totalExplicitWait / stepCount, 1);
+    const throwRatio = Math.min(totalThrow / stepCount, 1);
+
+    // Apply deductions proportionally
+    if (catchRatio < 0.8) {
+      const missing = stepCount - Math.round(totalCatchBlocks);
+      warnings.push(`${missing}/${stepCount} steps may be missing try-catch error handling`);
+      score -= Math.round(15 * (1 - catchRatio));
+    }
+    if (awaitRatio < 0.7) {
+      const missing = Math.max(0, stepCount - Math.round(totalAwait / 1.5));
+      warnings.push(`${missing}/${stepCount} steps potentially missing "await"`);
+      score -= Math.round(15 * (1 - awaitRatio));
+    }
+    if (waitRatio < 0.6) {
+      const missing = stepCount - Math.min(totalExplicitWait, stepCount);
+      warnings.push(`${missing}/${stepCount} steps potentially missing explicit waits`);
+      score -= Math.round(15 * (1 - waitRatio));
+    }
+    if (throwRatio < 0.5) {
+      score -= Math.round(5 * (1 - throwRatio));
+    }
 
     return {
       passed: issues.length === 0,
-      score: finalScore,
+      score: Math.max(0, score),
       issues,
       warnings,
       suggestions,

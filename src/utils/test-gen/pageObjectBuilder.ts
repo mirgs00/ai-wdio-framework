@@ -345,9 +345,9 @@ async function getDefaultElements(url: string): Promise<PageElement[]> {
         });
       } catch (err: unknown) {
         if (err instanceof Error) {
-          console.warn(`Couldn't analyze element: ${err.message}`);
+          logger.warn(`Couldn't analyze element: ${err.message}`);
         } else {
-          console.warn("Couldn't analyze element due to unknown error");
+          logger.warn("Couldn't analyze element due to unknown error");
         }
       }
     }
@@ -356,9 +356,9 @@ async function getDefaultElements(url: string): Promise<PageElement[]> {
     return pageElements;
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.error('Failed to dynamically analyze page:', error.message);
+      logger.error('Failed to dynamically analyze page:', error);
     } else {
-      console.error('Failed to dynamically analyze page due to unknown error');
+      logger.error('Failed to dynamically analyze page due to unknown error');
     }
     // Ultimate fallback
     return [

@@ -26,6 +26,8 @@ const config: Config = {
     '^papaparse$': '<rootDir>/test/__mocks__/papaparse.ts',
     '^mammoth$': '<rootDir>/test/__mocks__/mammoth.ts',
     '^exceljs$': '<rootDir>/test/__mocks__/exceljs.ts',
+    '^@wdio/mcp/snapshot$': '<rootDir>/test/__mocks__/@wdio/mcp/snapshot.ts',
+    '^@wdio/globals$': '<rootDir>/test/__mocks__/@wdio/globals.ts',
   },
 };
 

@@ -42,22 +42,22 @@
  */
 
 import { setupHealingHooks } from './healingHooks';
+import { logger } from '../logger';
 
 export function enableHealing(): void {
-  console.log('🔧 Enabling AI-powered self-healing system...');
+  logger.info('Enabling AI-powered self-healing system...');
 
   try {
     setupHealingHooks();
-    console.log('✅ Self-healing system initialized successfully');
-    console.log('📊 Features enabled:');
-    console.log('   - Automatic DOM scanning on failure');
-    console.log('   - Ollama-powered selector regeneration');
-    console.log('   - Auto file updates for page objects');
-    console.log('   - Intelligent retry with loop protection');
+    logger.info('Self-healing system initialized successfully');
+    logger.info('Features enabled:');
+    logger.info('  - Automatic DOM scanning on failure');
+    logger.info('  - Ollama-powered selector regeneration');
+    logger.info('  - Auto file updates for page objects');
+    logger.info('  - Intelligent retry with loop protection');
   } catch (error) {
-    console.warn(
-      '⚠️ Self-healing initialization error:',
-      error instanceof Error ? error.message : error
+    logger.warn(
+      `Self-healing initialization error: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }

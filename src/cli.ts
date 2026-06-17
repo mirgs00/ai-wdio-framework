@@ -12,7 +12,6 @@ import * as path from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { quote } from 'shell-quote';
-import { TestRunnerService } from './services/TestRunnerService';
 import { TestGenerationService } from './services/TestGenerationService';
 import { SelectorValidationService } from './services/SelectorValidationService';
 import { validateEnvironment } from './utils/environment';
@@ -28,7 +27,9 @@ import { discoverAndGenerate } from './utils/flow-matrix/flowMatrixBuilder';
 import { buildPageObjectsFromStates } from './utils/test-gen/pageObjectBuilder';
 import { generateStepDefsFromMatrixScenarios } from './utils/test-gen/stepDefinitionBuilder';
 import { OllamaClient } from './utils/ai/ollamaClient';
+import { createDefaultLLMProvider } from './utils/ai/factory';
 import { ServiceContainer } from './services/ServiceContainer';
+import { promptForConfig } from './utils/interactivePrompt';
 import { logger } from './utils/logger';
 
 /**
@@ -224,6 +225,7 @@ function buildFeatureFile(
 
 async function main(): Promise<void> {
   const parsedArgs = parseArgs(process.argv.slice(2));
+  const isInteractive = parsedArgs['interactive'] === true;
   const shouldRunTests = parsedArgs['run'] !== false;
   const shouldValidate = parsedArgs['validate'];
   const shouldRerun = parsedArgs['rerun'];
@@ -231,6 +233,73 @@ async function main(): Promise<void> {
   const shouldCheckDuplicates = parsedArgs['check-duplicates'];
   const shouldFixDuplicates = parsedArgs['fix'];
   const shouldRunHealing = parsedArgs['healing'];
+
+  // Interactive mode: prompt user for configuration
+  if (isInteractive) {
+    try {
+      const interactiveConfig = await promptForConfig();
+      validateEnvironment();
+
+      const aiTimeout = 15000;
+      const container = new ServiceContainer({
+        llmProvider: createDefaultLLMProvider({ model: interactiveConfig.model, maxRetries: 0, timeout: aiTimeout }),
+      });
+
+      logger.info(`\nStarting test generation for: ${interactiveConfig.url}`);
+
+      const { matrix, scenarios, log } = await discoverAndGenerate(interactiveConfig.url, container.llmProvider, {
+        maxDepth: interactiveConfig.maxDepth,
+        maxStates: interactiveConfig.maxStates,
+        maxInteractionsPerState: 5,
+        timeoutPerState: 15000,
+        totalTimeoutMs: 120000,
+        maxRadioDepth: 3,
+      });
+
+      logger.info(`Discovery complete: ${matrix.states.size} states, ${matrix.transitions.length} transitions`);
+      for (const entry of log) {
+        logger.info(`  ${entry}`);
+      }
+
+      const featuresDir = path.resolve('src/features');
+      mkdirSync(featuresDir, { recursive: true });
+
+      const featureContent = buildFeatureFile(scenarios, interactiveConfig.url);
+      const featureFileName = `generated_${new URL(interactiveConfig.url).hostname.replace(/\./g, '_')}.feature`;
+      const featureFilePath = path.join(featuresDir, featureFileName);
+      writeFileSync(featureFilePath, featureContent, 'utf-8');
+      logger.info(`Feature file: ${featureFilePath} (${scenarios.length} scenarios)`);
+
+      logger.info('Generating page objects...');
+      const statesArray = Array.from(matrix.states.values());
+      await buildPageObjectsFromStates(
+        statesArray.map((s) => ({
+          id: s.id,
+          url: s.url,
+          elements: s.elements.map((el) => ({
+            selector: el.selector,
+            text: el.text,
+            name: el.name,
+          })),
+        }))
+      );
+
+      logger.info('Generating step definitions...');
+      await generateStepDefsFromMatrixScenarios(scenarios, container.llmProvider, { url: interactiveConfig.url });
+
+      if (interactiveConfig.runTests) {
+        await container.testRunnerService.runTests(featureFilePath, 60000);
+      } else {
+        logger.info('Skipping test execution');
+      }
+
+      logger.info('\nTest generation completed successfully!');
+    } catch (error) {
+      logger.error('Error', error instanceof Error ? error : new Error(String(error)));
+      process.exit(1);
+    }
+    return;
+  }
 
   const config: TestGenerationConfig = {
     ollamaModel: typeof parsedArgs['model'] === 'string' ? parsedArgs['model'] : undefined,
@@ -274,7 +343,7 @@ async function main(): Promise<void> {
     if (shouldRunHealing) {
       validateEnvironment();
       const healingContainer = new ServiceContainer({
-        llmProvider: new OllamaClient({ model: config.ollamaModel, maxRetries: 0, timeout: 15000 }),
+        llmProvider: createDefaultLLMProvider({ model: config.ollamaModel, maxRetries: 0, timeout: 15000 }),
       });
       await executeHealingWorkflow(healingContainer);
       process.exit(0);
@@ -312,9 +381,12 @@ async function main(): Promise<void> {
             '  --model <model>      Ollama model to use (default: llama3)',
             '  --timeout <ms>       Test timeout in milliseconds (default: 60000)',
             '  --no-run             Generate tests without executing them',
+            '  --smoke-only         Generate only smoke tests (quick validation)',
             '  --max-depth <n>      Max navigation depth for flow discovery (default: 3)',
             '  --max-states <n>     Max states to discover (default: 20)',
-            '  --max-radio-depth <n> How deep to chain cascading radio selections (default: 3)',
+            '  --max-interactions <n> Max interactions explored per state (default: 15)',
+            '  --max-timeout <ms>   Total exploration timeout in ms (default: 300000)',
+            '  --max-radio-depth <n> How deep to chain cascading radio selections (default: 5)',
             '  --ai-timeout <ms>    Timeout for individual AI calls (default: 15000)',
             '  --validate           Dry-run: Check if all selectors exist in DOM',
             '  --rerun              Re-run failed tests from last execution',
@@ -363,7 +435,7 @@ async function main(): Promise<void> {
     );
 
     const container = new ServiceContainer({
-      llmProvider: new OllamaClient({
+      llmProvider: createDefaultLLMProvider({
         model: config.ollamaModel,
         maxRetries: 0,
         timeout: aiTimeout,
@@ -371,17 +443,53 @@ async function main(): Promise<void> {
     });
 
     logger.info('\n🔍 Discovering flow matrix...');
-    const maxDepth = typeof parsedArgs['max-depth'] === 'string' ? parseInt(parsedArgs['max-depth'], 10) : 3;
-    const maxStates = typeof parsedArgs['max-states'] === 'string' ? parseInt(parsedArgs['max-states'], 10) : 20;
+    const maxDepth = typeof parsedArgs['max-depth'] === 'string' ? parseInt(parsedArgs['max-depth'], 10) : 5;
+    const maxStates = typeof parsedArgs['max-states'] === 'string' ? parseInt(parsedArgs['max-states'], 10) : 50;
+    const maxInteractions = typeof parsedArgs['max-interactions'] === 'string' ? parseInt(parsedArgs['max-interactions'], 10) : 15;
+    const maxTimeout = typeof parsedArgs['max-timeout'] === 'string' ? parseInt(parsedArgs['max-timeout'], 10) : 300000;
+
+    // Create browser context for combinatorial discovery
+    let browserCtx: import('./utils/flow-matrix/interactionEngine').BrowserContext | undefined;
+    try {
+      const { remote } = await import('webdriverio');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const browser: any = await remote({
+        capabilities: {
+          browserName: process.env.BROWSER || 'chrome',
+          'wdio:enforceWebDriverClassic': true,
+        },
+        logLevel: 'warn' as const,
+      });
+      browserCtx = {
+        url: async (u: string) => browser.url(u),
+        execute: async (fn: (...args: unknown[]) => unknown, ...args: unknown[]) => browser.execute(fn, ...args),
+        $: async (selector: string) => browser.$(selector),
+        keys: async (keys: string | string[]) => browser.keys(keys),
+        getUrl: async () => browser.getUrl(),
+        getTitle: async () => browser.getTitle(),
+        waitUntil: async (condition: () => Promise<boolean>, opts?: { timeout?: number; timeoutMsg?: string }) => browser.waitUntil(condition, opts),
+        pause: async (ms: number) => browser.pause(ms),
+        closeSession: async () => browser.deleteSession(),
+        $$: async (selector: string) => browser.$$(selector),
+      };
+    } catch {
+      logger.warn('Could not create browser context for combinatorial discovery, using BFS fallback');
+    }
 
     const { matrix, scenarios, log } = await discoverAndGenerate(validatedUrl, container.llmProvider, {
       maxDepth,
       maxStates,
-      maxInteractionsPerState: 5,
+      maxInteractionsPerState: maxInteractions,
       timeoutPerState: 15000,
-      totalTimeoutMs: 120000,
+      totalTimeoutMs: maxTimeout,
       maxRadioDepth,
-    });
+      smokeOnly: parsedArgs['smoke-only'] === true,
+    }, browserCtx);
+
+    // Clean up browser context
+    if (browserCtx) {
+      try { await browserCtx.closeSession(); } catch { /* ignore */ }
+    }
 
     logger.info(`\n📊 Discovery complete: ${matrix.states.size} states, ${matrix.transitions.length} transitions`);
     for (const entry of log) {

@@ -1,9 +1,21 @@
 import { LLMClient, LLMSuggestion } from './LLMClient';
 import { PageObjectModel } from './PageObjectModel';
 import { browser } from '@wdio/globals';
-import { getInteractableBrowserElements, getBrowserAccessibilityTree } from '@wdio/mcp/snapshot';
 import type { BrowserElementInfo, AccessibilityNode } from '@wdio/mcp/snapshot';
 import { logger } from '../logger';
+
+// Dynamic import for ESM-only @wdio/mcp/snapshot
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mcpSnapshot: any = null;
+async function loadMCPSnapshot(): Promise<boolean> {
+  if (mcpSnapshot) return true;
+  try {
+    mcpSnapshot = await import('@wdio/mcp/snapshot');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // --- 2. SelfHealingLocator Implementation ---
 
@@ -49,8 +61,12 @@ export class SelfHealingLocator {
      */
     private async getMCPContext(_failedLocator: string): Promise<string> {
         try {
-            const elements = await getInteractableBrowserElements(browser);
-            const tree = await getBrowserAccessibilityTree(browser);
+            const loaded = await loadMCPSnapshot();
+            if (!loaded || !mcpSnapshot) {
+                return '**Page context unavailable** — MCP snapshot not loaded.';
+            }
+            const elements = await mcpSnapshot.getInteractableBrowserElements(browser);
+            const tree = await mcpSnapshot.getBrowserAccessibilityTree(browser);
 
             const elementsSummary = elements
                 .slice(0, 30)

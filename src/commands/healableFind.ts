@@ -3,6 +3,7 @@ import { PageObjectModel } from 'utils/ai/PageObjectModel';
 import { SelfHealingLocator } from 'utils/ai/SelfHealingLocator';
 import { OllamaClient } from 'utils/ai/ollamaClient';
 import { browser } from '@wdio/globals';
+import { logger } from '../utils/logger';
 
 // --- 1. Initialization ---
 
@@ -56,7 +57,7 @@ browser.addCommand('healableFind', async function (elementName: string): Promise
             const err = error as { name?: string; message?: string };
             if (err.name === 'ElementNotFound' || err.name === 'TimeoutError') {
                 if (attempt === 1) {
-                    console.warn(`[HealableFind] Element '${elementName}' failed on first attempt with locator: ${currentLocator}. Triggering self-healing...`);
+                    logger.warn(`[HealableFind] Element '${elementName}' failed on first attempt with locator: ${currentLocator}. Triggering self-healing...`);
                     
                     // 3. Call the Self-Healing Logic
                     const healingSuccessful = await selfHealingLocator.attemptHeal(elementName, locatorData.value);
@@ -66,11 +67,11 @@ browser.addCommand('healableFind', async function (elementName: string): Promise
                         // Update the currentLocator variable for the retry attempt.
                         const newLocatorData = pom.locators[elementName];
                         currentLocator = `${newLocatorData.type}=${newLocatorData.value}`;
-                        console.log(`[HealableFind] Healing successful. Retrying with new locator: ${currentLocator}`);
+                        logger.info(`[HealableFind] Healing successful. Retrying with new locator: ${currentLocator}`);
                         continue; 
                     } else {
                         // Healing failed. Break the loop and re-throw the original error.
-                        console.error(`[HealableFind] Self-healing failed. Re-throwing original error.`);
+                        logger.error(`[HealableFind] Self-healing failed. Re-throwing original error.`);
                         break;
                     }
                 }

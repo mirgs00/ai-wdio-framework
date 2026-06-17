@@ -1,9 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
+    "ai-wdio": {
+      "type": "local",
+      "command": ["npx", "ts-node", "src/mcp/server.ts"],
+      "enabled": true
+    },
     "wdio": {
       "type": "local",
-      "command": ["npx", "-y", "wdio-mcp"],
+      "command": ["node", "./node_modules/@wdio/mcp/lib/server.js"],
       "enabled": true
     },
     "sequential-thinking": {

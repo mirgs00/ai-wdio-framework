@@ -8,7 +8,8 @@ import { load } from 'cheerio';
 import { stepPatternGenerator } from './stepPatternGenerator';
 import { stepQualityValidator } from './qualityValidator';
 import { validateTypeScript } from '../validation/codeValidator';
-import { REGEX_PATTERNS, regexHelpers } from '../constants/regexPatterns';
+import { REGEX_PATTERNS } from '../constants/regexPatterns';
+import { determineStepType } from './stepClassifier';
 import { logger } from '../logger';
 
 const STEP_DEFINITIONS_PATH = path.resolve('src/step-definitions');
@@ -65,33 +66,6 @@ function extractStepsFromFeature(featureContent: string): string[] {
   }
 
   return steps;
-}
-
-function determineStepType(step: string): 'Given' | 'When' | 'Then' {
-  const lowerStep = step.toLowerCase();
-
-  if (
-    lowerStep.includes('navigate') ||
-    lowerStep.includes('open') ||
-    lowerStep.includes('visit') ||
-    lowerStep.includes('on the page') ||
-    lowerStep.includes('on the login')
-  ) {
-    return 'Given';
-  }
-
-  if (
-    lowerStep.includes('should') ||
-    lowerStep.includes('verify') ||
-    lowerStep.includes('expect') ||
-    lowerStep.includes('see') ||
-    lowerStep.includes('remain') ||
-    lowerStep.includes('error message')
-  ) {
-    return 'Then';
-  }
-
-  return 'When';
 }
 
 function generateStepPattern(step: string): string {
@@ -239,6 +213,7 @@ async function analyzeApplicationContext(url: string, dom?: string): Promise<str
     try {
       domContent = await getDOMSnapshot(url);
     } catch {
+      logger.debug(`Could not fetch DOM for application analysis: ${url}`);
       return 'Unable to fetch DOM for analysis';
     }
   }
@@ -321,6 +296,7 @@ function _getAvailablePageMethods(): string[] {
       .map((m) => m.replace('async ', '').replace('(', ''))
       .filter((m) => !m.startsWith('_') && m !== 'constructor');
   } catch {
+    logger.debug('Could not read page object for method extraction');
     return [];
   }
 }
@@ -541,6 +517,7 @@ function generateFallbackImplementation(
       return `try {
   const found = await $('=' + ${textParam});
   if (await found.isExisting()) {
+    await found.waitForClickable({ timeout: 5000 });
     await found.click();
   } else {
     const clicked = await browser.execute((text: string) => {
@@ -592,7 +569,7 @@ function generateFallbackImplementation(
     return hasSelector ? `try {
   await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
   const el = await $(${selParam});
-  await el.waitForEnabled({ timeout: 5000 });
+  await el.waitForDisplayed({ timeout: 5000 });
   await el.clearValue();
   await el.setValue(${valParam});
 } catch (error) {
@@ -600,6 +577,7 @@ function generateFallbackImplementation(
   throw new Error(\`Fill field failed: \${errorMessage}\`);
 }` : `try {
   await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
+  await $(${selParam}).waitForDisplayed({ timeout: 5000 });
   await $(${selParam}).setValue(${valParam});
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
@@ -611,6 +589,7 @@ function generateFallbackImplementation(
   if (lowerStep.includes('submit form')) {
     return `try {
   await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
+  await $('button[type="submit"], input[type="submit"]').waitForDisplayed({ timeout: 5000 });
   await $('button[type="submit"], input[type="submit"]').click();
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
@@ -642,7 +621,7 @@ function generateFallbackImplementation(
     const target = textParam ? `${textParam}` : `'${searchText}'`;
     return `try {
   const found = await browser.execute((text: string) => document.body?.innerText?.includes(text) || false, String(${target}));
-  if (!found) throw new Error(\`Text not found: \${${target}}\`);
+  expect(found).toBe(true);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(\`Text not found: \${errorMessage}\`);
@@ -844,6 +823,7 @@ function generateFallbackImplementation(
   if (lowerStep.includes('submits the form')) {
     return `try {
   await browser.execute(() => document.querySelectorAll('iframe').forEach((f) => ((f as HTMLElement).style.display = 'none')));
+  await $('[type="submit"], button[type="submit"], button:not([type])').waitForDisplayed({ timeout: 5000 });
   await $('[type="submit"], button[type="submit"], button:not([type])').click();
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
@@ -860,6 +840,43 @@ function generateFallbackImplementation(
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   throw new Error(\`Title verification failed: \${errorMessage}\`);
+}`;
+  }
+
+  // Page load success check
+  if (lowerStep.includes('page should load successfully')) {
+    return `try {
+  await browser.waitUntil(
+    async () => (await browser.execute(() => document.readyState)) === 'complete',
+    { timeout: 10000, timeoutMsg: 'Page load timeout' }
+  );
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(\`Page did not load: \${errorMessage}\`);
+}`;
+  }
+
+  // Page title present check
+  if (lowerStep.includes('page title should be present')) {
+    return `try {
+  const title = await browser.getTitle();
+  expect(title).toBeTruthy();
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(\`Page title check failed: \${errorMessage}\`);
+}`;
+  }
+
+  // Generic page visibility check (e.g. "the checkout page should be visible")
+  if (lowerStep.includes('page should be visible')) {
+    return `try {
+  await browser.waitUntil(
+    async () => (await browser.execute(() => document.body !== null && document.body.children.length > 0)),
+    { timeout: 10000, timeoutMsg: 'Page body not visible' }
+  );
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  throw new Error(\`Page not visible: \${errorMessage}\`);
 }`;
   }
 

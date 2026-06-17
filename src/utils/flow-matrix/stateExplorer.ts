@@ -19,7 +19,9 @@ import {
   sanitizeDescription,
   friendlySelector,
 } from './interactionEngine'
+import { MCPBrowserContext } from './mcpBrowserContext'
 import type { LLMProvider } from '../ai/types'
+import { logger } from '../logger'
 
 export interface ExploreResult {
   matrix: FlowMatrix
@@ -27,6 +29,20 @@ export interface ExploreResult {
 }
 
 async function ensureBrowser(): Promise<BrowserContext> {
+  // Try MCP browser context first
+  try {
+    const mcpCtx = new MCPBrowserContext();
+    // Give it a moment to check availability
+    await new Promise(resolve => setTimeout(resolve, 100));
+    if (mcpCtx.isMCPAvailable()) {
+      logger.info('Using MCP-backed browser context');
+      return mcpCtx;
+    }
+  } catch {
+    logger.debug('MCP browser context not available, falling back to WebDriverIO');
+  }
+
+  // Fallback to raw WebDriverIO
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const browser: any = await remote({
     capabilities: {
@@ -160,9 +176,16 @@ export async function explorePage(
           }
 
           // Navigate back to parent state for the next interaction
-          // This ensures SPA interactions don't bleed between states
+          // For SPA forms: re-apply radio/checkbox selections instead of navigating back
           if (i < selected.length - 1) {
-            await safeNavigate(ctx, state.url)
+            const currentUrl = await ctx.getUrl()
+            if (currentUrl === state.url) {
+              // SPA form — re-apply checked radios/checkboxes from parent state
+              await restoreFormState(ctx, state)
+            } else {
+              // Regular navigation — navigate back
+              await safeNavigate(ctx, state.url)
+            }
           }
         } catch (err) {
           const errMsg = (err as Error).message
@@ -292,6 +315,7 @@ async function scanInteractiveElements(
     }
 
     const tags = ['a', 'button', 'input', 'select', 'textarea', 'form']
+    const roleSelectors = ['[role="button"]', '[role="radio"]', '[role="checkbox"]', '[role="combobox"]', '[role="tab"]', '[role="menuitem"]']
     const seen = new Set<string>()
 
     for (const tag of tags) {
@@ -323,6 +347,10 @@ async function scanInteractiveElements(
           type = el.type
           name = el.name
           placeholder = el.placeholder
+          // Capture checked state for radios/checkboxes
+          if (el.type === 'radio' || el.type === 'checkbox') {
+            attrs['checked'] = String(el.checked)
+          }
         } else if (
           el instanceof HTMLSelectElement ||
           el instanceof HTMLTextAreaElement
@@ -349,6 +377,37 @@ async function scanInteractiveElements(
           name,
           placeholder,
           text,
+          attributes: attrs,
+        })
+      }
+    }
+
+    // Scan role-based interactive elements (custom components, ARIA widgets)
+    for (const selector of roleSelectors) {
+      const els = document.querySelectorAll(selector) as unknown as HTMLElement[]
+      for (const el of els) {
+        if (el instanceof HTMLElement && el.offsetParent === null) continue
+        if (el instanceof HTMLElement && el.style.display === 'none') continue
+
+        const sel = getSelector(el)
+        if (seen.has(sel)) continue
+        seen.add(sel)
+
+        const attrs: Record<string, string> = {}
+        for (let i = 0; i < el.attributes.length; i++) {
+          const attr = el.attributes[i]
+          attrs[attr.name] = attr.value
+        }
+        attrs['role'] = el.getAttribute('role') || ''
+
+        const roleElType = el.getAttribute('role') || ''
+
+        results.push({
+          tag: el.tagName.toLowerCase(),
+          selector: sel,
+          type: roleElType || undefined,
+          name: el.getAttribute('aria-label') || undefined,
+          text: (el.textContent || '').trim().slice(0, 100),
           attributes: attrs,
         })
       }
@@ -391,6 +450,10 @@ async function scanInteractiveElements(
             type = el.type
             name = el.name
             placeholder = el.placeholder
+            // Capture checked state for radios/checkboxes
+            if (el.type === 'radio' || el.type === 'checkbox') {
+              attrs['checked'] = String(el.checked)
+            }
           } else if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
             name = el.name
             placeholder = (el as HTMLTextAreaElement).placeholder
@@ -544,15 +607,36 @@ function selectInteractions(state: StateNode): Interaction[] {
     }
   }
 
-  // Limit each tier so no single category dominates (max 10 total, max 5 per tier)
-  const maxPerTier = 5
-  const maxTotal = 10
+  // Limit each tier so no single category dominates (max 20 total, max 8 per tier)
+  const maxPerTier = 8
+  const maxTotal = 20
   const result = [
     ...high.slice(0, maxPerTier),
     ...medium.slice(0, maxPerTier),
     ...low.slice(0, maxPerTier),
   ]
   return result.slice(0, maxTotal)
+}
+
+/**
+ * Restore form state by re-clicking checked radios/checkboxes.
+ * Used after SPA interactions to re-apply parent state's selections.
+ */
+async function restoreFormState(ctx: BrowserContext, state: StateNode): Promise<void> {
+  const checkedElements = state.elements.filter(
+    (el) => el.isInput && (el.type === 'radio' || el.type === 'checkbox') && el.attributes['checked'] === 'true'
+  )
+  for (const el of checkedElements) {
+    try {
+      const browserEl = await ctx.$(el.selector)
+      if (browserEl) {
+        await browserEl.click()
+        await ctx.pause(300)
+      }
+    } catch {
+      // Element might not be visible after state change — skip
+    }
+  }
 }
 
 async function executeInteraction(
@@ -618,12 +702,29 @@ async function executeInteraction(
     try {
       await ctx.execute(() => {
         return new Promise<void>((resolve) => {
+          let lastMutationTime = Date.now()
+          let hasMutations = false
+          const maxWait = 5000
+
           const observer = new MutationObserver(() => {
-            observer.disconnect()
-            resolve()
+            hasMutations = true
+            lastMutationTime = Date.now()
           })
-          observer.observe(document.body, { childList: true, subtree: true, attributes: false })
-          setTimeout(() => { observer.disconnect(); resolve() }, 2000)
+          observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+
+          const check = setInterval(() => {
+            if (!hasMutations || Date.now() - lastMutationTime > 500) {
+              observer.disconnect()
+              clearInterval(check)
+              resolve()
+            }
+          }, 100)
+
+          setTimeout(() => {
+            observer.disconnect()
+            clearInterval(check)
+            resolve()
+          }, maxWait)
         })
       })
     } catch {

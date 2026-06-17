@@ -27,7 +27,7 @@ export const CACHE_CONFIG = {
 
 export const OLLAMA_CONFIG = {
   DEFAULT_BASE_URL: 'http://localhost:11434',
-  DEFAULT_MODEL: 'qwen2.5:0.5b',
+  DEFAULT_MODEL: 'llama3',
   DEFAULT_TEMPERATURE: 0.3,
   DEFAULT_MAX_TOKENS: 1024,
   DEFAULT_TOP_P: 0.9,
