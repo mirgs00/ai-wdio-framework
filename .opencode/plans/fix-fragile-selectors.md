@@ -1,5 +1,7 @@
 # Plan: Fix Fragile Selector Generation
 
+> **Status: DONE** — implemented in commit `e6d4558`. Verification passed: `npx tsc --noEmit` clean, no new lint issues.
+
 ## Goal
 Improve `getSelector()` in `src/utils/flow-matrix/stateExplorer.ts` to produce stable, resilient CSS selectors by expanding the priority chain and removing fragile positional fallbacks.
 

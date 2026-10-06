@@ -41,7 +41,7 @@ When you need to understand what you're looking at, query the local model:
 
 ```
 ollama_chat({
-  model: "llama3",
+  model: "qwen2.5-coder:7b",
   messages: [
     { role: "system", content: "You are a web testing expert." },
     { role: "user", content: "The page has these elements: [paste elements]. What should I click to navigate to the login form?" }
@@ -55,7 +55,7 @@ When an element's purpose is unclear from the DOM alone:
 
 ```
 ollama_generate({
-  model: "llama3",
+  model: "qwen2.5-coder:7b",
   prompt: "Given this element: <input type='text' name='email' placeholder='Enter your work email'>. Generate a data-testid attribute value that would make this easy to select in tests."
 })
 ```
@@ -66,7 +66,7 @@ When a test fails, capture the error and page state, then ask Ollama:
 
 ```
 ollama_chat({
-  model: "llama3",
+  model: "qwen2.5-coder:7b",
   messages: [
     { role: "system", content: "You are debugging a WebdriverIO test failure." },
     { role: "user", content: "Test step: 'When the user submits the form' failed with: 'element (\"#submit-btn\") not found'. Current page elements: [paste from get_elements]. What likely changed?" }
@@ -104,7 +104,7 @@ ollama_list_models()
 If the desired model is not installed:
 
 ```
-ollama_pull_model({model: "llama3"})
+ollama_pull_model({model: "qwen2.5-coder:7b"})
 ```
 
 Ollama connects to `http://localhost:11434` by default. Ensure the Ollama

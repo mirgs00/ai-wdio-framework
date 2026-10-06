@@ -18,7 +18,7 @@ npx ts-node src/cli.ts <url> [options]
 
 | Flag | Default | Purpose |
 |------|---------|---------|
-| `--model <model>` | `llama3` | Ollama model for AI form-data generation |
+| `--model <model>` | `qwen2.5-coder:7b` | Ollama model for AI form-data generation |
 | `--max-depth <n>` | `3` | Max navigation depth (how many clicks deep) |
 | `--max-states <n>` | `20` | Max states to discover before stopping |
 | `--max-radio-depth <n>` | `3` | How deep to chain cascading radio selections |

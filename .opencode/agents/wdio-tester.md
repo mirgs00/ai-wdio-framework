@@ -47,7 +47,7 @@ Options:
   --max-depth <n>        Max navigation depth (default: 3)
   --max-states <n>       Max states to discover (default: 20)
   --max-radio-depth <n>  How deep to chain cascading radio selections (default: 3)
-  --model <model>        Ollama model (default: llama3)
+  --model <model>        Ollama model (default: qwen2.5-coder:7b)
   --no-run               Generate without executing tests
   --ai-timeout <ms>      AI call timeout (default: 15000)
   --healing              Run self-healing workflow

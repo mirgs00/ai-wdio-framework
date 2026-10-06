@@ -23,18 +23,26 @@
     },
     "filesystem": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/mirgs/Documents/ai-wdio-framework"],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."],
+      "cwd": ".",
       "enabled": true
     },
     "github": {
       "type": "local",
-      "command": ["npx", "-y", "github-mcp-server-mcp"],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}" },
       "enabled": true
     },
     "ollama": {
       "type": "local",
-      "command": ["npx", "-y", "ollama-mcp"],
+      "command": ["npx", "-y", "ollama-mcp-server"],
       "enabled": true
+    },
+    "servers": {
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp"
+      }
     }
   },
   "instructions": [".opencode/mcp-reference.md", ".zencoder/rules/repo.md"]

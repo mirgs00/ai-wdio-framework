@@ -20,7 +20,7 @@ export class MCPBrowserContext implements BrowserContext {
   private mcpAvailable = false;
 
   constructor() {
-    this.checkMCPAvailability();
+    void this.checkMCPAvailability();
   }
 
   private async checkMCPAvailability(): Promise<void> {

@@ -309,7 +309,7 @@ Create a `.env` file in the project root with your configuration:
 ```env
 # Ollama AI
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3
+OLLAMA_MODEL=qwen2.5-coder:7b
 OLLAMA_TIMEOUT=30000
 OLLAMA_MAX_RETRIES=3
 OLLAMA_RETRY_DELAY_MS=1000
@@ -529,7 +529,7 @@ Edit `wdio.conf.ts` to customize:
 ### AI Model Configuration
 
 Set via environment variables or `constants.ts`:
-- **Model**: `OLLAMA_MODEL` env var or `OLLAMA_CONFIG.DEFAULT_MODEL` (default: `llama3`)
+- **Model**: `OLLAMA_MODEL` env var or `OLLAMA_CONFIG.DEFAULT_MODEL` (default: `qwen2.5-coder:7b`)
 - **Temperature**: `OLLAMA_CONFIG.DEFAULT_TEMPERATURE` (default: `0.7`)
 - **Token limits**: `OLLAMA_CONFIG.DEFAULT_MAX_TOKENS` (default: `2048`)
 - **Timeout**: `TIMEOUTS.API_TIMEOUT` (default: `60000ms`)

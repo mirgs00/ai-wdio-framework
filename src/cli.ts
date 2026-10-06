@@ -351,12 +351,17 @@ async function main(): Promise<void> {
 
     validateEnvironment();
 
-    const url = typeof parsedArgs['url'] === 'string' ? parsedArgs['url'] : undefined;
+    const positionalUrl = process.argv
+      .slice(2)
+      .find((arg) => /^https?:\/\//i.test(arg));
+
+    const url =
+      typeof parsedArgs['url'] === 'string'
+        ? parsedArgs['url']
+        : positionalUrl || process.env.BASE_URL;
 
     if (!url && !parsedArgs['instructions']) {
-      const [firstArg] = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
-      if (!firstArg) {
-        logger.info(
+      logger.info(
           [
             '❌ Usage:',
             '  Mode 1 - URL (auto-discover flow matrix):',
@@ -378,7 +383,7 @@ async function main(): Promise<void> {
             '    ts-node src/cli.ts --healing',
             '',
             'Options:',
-            '  --model <model>      Ollama model to use (default: llama3)',
+            '  --model <model>      Ollama model to use (default: qwen2.5-coder:7b)',
             '  --timeout <ms>       Test timeout in milliseconds (default: 60000)',
             '  --no-run             Generate tests without executing them',
             '  --smoke-only         Generate only smoke tests (quick validation)',
@@ -404,8 +409,6 @@ async function main(): Promise<void> {
           ].join('\n')
         );
         process.exit(1);
-      }
-      parsedArgs['url'] = firstArg;
     }
 
     const validatedUrl = url
@@ -426,7 +429,7 @@ async function main(): Promise<void> {
       [
         `🚀 Starting flow-matrix-based test generation`,
         `📌 URL: ${validatedUrl}`,
-        `🤖 Model: ${config.ollamaModel || 'llama3'}`,
+        `🤖 Model: ${config.ollamaModel || 'qwen2.5-coder:7b'}`,
         `⏱️  AI timeout: ${aiTimeout}ms`,
         `🏃‍♂️ Run tests: ${shouldRunTests ? 'Yes' : 'No'}`,
         `📸 Screenshots: ${config.screenshotOnFailure ? 'On failure' : 'Disabled'}`,

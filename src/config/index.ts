@@ -44,7 +44,7 @@ export class ConfigManager {
     return {
       ollama: {
         baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-        model: process.env.OLLAMA_MODEL || 'llama3',
+        model: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b',
         timeout: this.parseNumber(process.env.OLLAMA_TIMEOUT, 30000),
         maxRetries: this.parseNumber(process.env.OLLAMA_MAX_RETRIES, 3),
         retryDelayMs: this.parseNumber(process.env.OLLAMA_RETRY_DELAY_MS, 1000),

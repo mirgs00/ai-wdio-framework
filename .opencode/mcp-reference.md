@@ -94,21 +94,22 @@ Sandboxed file access (restricted to project directory).
 | `copy_file` | Copy a file |
 | `get_file_info` | Get file metadata |
 
-Restricted to: `/home/mirgs/Documents/ai-wdio-framework`
+Restricted to: workspace root (`.` — relative, portable across machines)
 
 ---
 
-## github-mcp-server — Git Repository Management
+## @modelcontextprotocol/server-github — GitHub Repository Management
 
-Full Git workflow operations (29+ Git commands exposed as MCP tools).
+GitHub API operations via the official MCP server (26 tools). Runs through Code Mode, so call as `tools.github.<tool>(...)`.
 
-| Tool Category | Tools |
-|---------------|-------|
-| **Core Git** | `git_add`, `git_commit`, `git_push`, `git_pull`, `git_status`, `git_diff`, `git_log`, `git_branch`, `git_checkout`, `git_stash`, `git_pop`, `git_reset`, `git_clone`, `git_init`, `git_remote`, `git_merge`, `git_rebase` |
-| **Advanced** | `git_tag`, `git_cherry_pick`, `git_blame`, `git_bisect` |
-| **Workflows** | `git_quick`, `git_sync`, `git_fix`, `git_fresh`, `git_clean`, `git_save`, `git_release`, `git_workflow`, `git_dev` |
+| Tool Category | Examples |
+|---|---|
+| **Issues** | `create_issue`, `get_issue`, `add_issue_comment` |
+| **Commits / Code** | `list_commits`, `search_code`, `get_file_contents` |
+| **Repos** | `get_repository`, `list_repositories`, `create_repository` |
+| **PRs** | `create_pull_request`, `get_pull_request`, `list_pull_requests` |
 
-Requires `GITHUB_TOKEN` (or `GH_TOKEN`) env var for GitHub API operations.
+Requires `GITHUB_PERSONAL_ACCESS_TOKEN` env var (substituted via `{env:GITHUB_PERSONAL_ACCESS_TOKEN}` in `opencode.json`).
 
 ---
 ---
@@ -153,11 +154,12 @@ Connects to `http://localhost:11434` by default.
 
 ### Auto-PR Generated Tests
 
-1. `git_checkout({name: "test-gen/example-com", createNew: true})`
-2. `git_add({files: ["src/features/", "src/page-objects/", "src/step-definitions/"]})`
-3. `git_commit({message: "test: auto-generate scenarios for example.com"})`
-4. `git_push()`
-5. `git_quick({message: "Auto-generated test scenarios for example.com"})`
+Local git operations (checkout, add, commit, push) are done via the shell, not MCP. GitHub MCP tools are then used for PR/issue management:
+
+1. `git checkout -b test-gen/example-com` (shell)
+2. `git add src/features/ src/page-objects/ src/step-definitions/ && git commit -m "test: auto-generate scenarios"` (shell)
+3. `git push -u origin test-gen/example-com` (shell)
+4. `tools.github.create_pull_request(...)` to open the PR
 
 ---
 

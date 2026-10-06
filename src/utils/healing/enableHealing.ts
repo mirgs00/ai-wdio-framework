@@ -24,7 +24,7 @@
  *
  * Configuration via Environment Variables:
  * - OLLAMA_BASE_URL: Ollama service URL (default: http://localhost:11434)
- * - OLLAMA_MODEL: Model to use (default: llama3)
+ * - OLLAMA_MODEL: Model to use (default: qwen2.5-coder:7b)
  * - OLLAMA_TIMEOUT: Timeout in ms (default: 120000)
  * - OLLAMA_MAX_RETRIES: Max retry attempts (default: 3)
  *

@@ -24,7 +24,7 @@ export async function promptForConfig(): Promise<InteractiveConfig> {
     }
 
     const instruction = await ask('Describe what to test (optional, press Enter to skip): ');
-    const model = (await ask('Ollama model [llama3]: ')).trim() || 'llama3';
+    const model = (await ask('Ollama model [qwen2.5-coder:7b]: ')).trim() || 'qwen2.5-coder:7b';
     const runTestsInput = (await ask('Run tests after generation? [Y/n]: ')).trim().toLowerCase();
     const runTests = runTestsInput !== 'n';
     const maxDepthInput = (await ask('Max exploration depth [3]: ')).trim();
